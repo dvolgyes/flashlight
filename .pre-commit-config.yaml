@@ -1,0 +1,77 @@
+repos:
+-   repo: local
+    hooks:
+    -   id: exclude-unwanted
+        name: exclude unwanted files, e.g. training data
+        entry: exclude unwanted files, e.g. training data
+        language: fail
+        files: '.*png|.*xlsx'
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: check-added-large-files
+    -   id: check-case-conflict
+    -   id: check-ast
+    -   id: check-executables-have-shebangs
+    -   id: check-json
+    -   id: check-merge-conflict
+    -   id: check-symlinks
+    -   id: check-toml
+    -   id: check-xml
+    -   id: check-vcs-permalinks
+    -   id: check-xml
+    -   id: detect-private-key
+    -   id: end-of-file-fixer
+    -   id: pretty-format-json
+    -   id: requirements-txt-fixer
+    -   id: sort-simple-yaml
+    -   id: double-quote-string-fixer
+    -   id: mixed-line-ending
+    -   id: debug-statements
+    -   id: pretty-format-json
+        args: ['--autofix']
+    -   id: flake8
+        additional_dependencies: [
+            flake8-bandit,
+            flake8-blind-except,
+            flake8-breakpoint,
+            flake8-broken-line,
+            flake8-bugbear,
+            flake8-builtins,
+            flake8-class-newline,
+            flake8-comprehensions,
+            flake8-debugger,
+            flake8-eradicate,
+            flake8-if-expr,
+            flake8-logging-format,
+            flake8-pep3101,
+            flake8-polyfill,
+            flake8-pytest,
+            flake8-pytest-style,
+            flake8-quotes,
+            flake8-string-format,
+            flake8-type-annotations,
+            flake8-use-fstring,
+            flake8-fixme,
+            flake8-markdown,
+            flake8-2020,
+            flake8-print,
+            pep8-naming]
+        args: ['--max-line-length=120', '--ignore=E801,E501,E116,E265,E203,W503,N806,E800,N812,N816']
+
+-   repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.4.1  # Use the ref you want to point at
+    hooks:
+    -   id: python-check-blanket-noqa
+    -   id: python-no-log-warn
+    -   id: rst-backticks
+-   repo: https://github.com/asottile/pyupgrade
+    rev: v1.22.1
+    hooks:
+    -   id: pyupgrade
+        args: ['--py36-plus']
+-   repo: https://github.com/pre-commit/mirrors-autopep8
+    rev: ''  # Use the sha / tag you want to point at
+    hooks:
+    -   id: autopep8
