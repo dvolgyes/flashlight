@@ -1,0 +1,25 @@
+channels:
+  - pytorch
+dependencies:
+  - python
+  - matplotlib
+  - numpy
+  - scipy
+  - pytorch
+  - ipython
+  - cpuonly
+  - torchvision
+  - imageio
+  - tensorboardX
+  - dpath
+  - python-box
+  - pyyaml
+  - loguru
+  - python-dotenv
+  - scikit-image
+  - GitPython
+  - pyfiglet
+  - mkl
+  - mkl-service
+  - blas=*=mkl
+#  - cpuonly
