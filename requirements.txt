@@ -2,5 +2,6 @@ better_exceptions
 decopatch
 dsntnn
 duecredit
+psutil
 pycontracts
 stdlib_list

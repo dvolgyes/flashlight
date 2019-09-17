@@ -4,6 +4,9 @@ from box import SBox
 import dpath
 import os
 import yaml
+import torch
+import numpy as np
+import psutil
 
 
 @contract
@@ -53,12 +56,25 @@ def resolve_templates(cfg, namespace=None):
     """Template variables using %VAR% format will be resolved in the dictionary.
        The variable should refer to a path in the dictionary, with the dot notation.
 
-        Namespace can be used to provide environmental variables, which might be resolved
-        on reference, but in general should not be merged directly into 'cfg'.
-        For instance:
+       Namespace can be used to provide environmental variables, which might be resolved
+       on reference, but in general should not be merged directly into 'cfg'.
+       For instance:
 
-        >>> resolve_templates({'a': '%X%', 'b': {'c':'d'}, 'e': '%b.c%'}, {'X': 22, 'OS': 'L'})
-        {'a': 22, 'b': {'c': 'd'}, 'e': 'd'}
+       >>> resolve_templates({'a': '%X%', 'b': {'c':'d'}, 'e': '%b.c%'}, {'X': 22, 'OS': 'L'})
+       {'a': 22, 'b': {'c': 'd'}, 'e': 'd'}
+
+       Missing templates should be unchanged:
+       >>> resolve_templates({'a': '%MISSING%'})
+       {'a': '%MISSING%'}
+
+       Built-in variables:
+       >>> resolve_templates({'a': '%PHYSICAL_CORES%'})
+       {'a': 2}
+
+       Built-in variables:
+       >>> resolve_templates({'a': '${3+6}'})
+       {'a': 9}
+
 
        Parameters:
        :type cfg: dict
@@ -68,19 +84,37 @@ def resolve_templates(cfg, namespace=None):
 
     if namespace is None:
         namespace = {}
-    namespace = SBox(namespace, default_box=False)
-    template = True
-    while template:
-        template = False
+    namespace = SBox(namespace, default_box=False).copy()
+
+    namespace.LOGICAL_CORES = psutil.cpu_count()
+    namespace.PHYSICAL_CORES = psutil.cpu_count(logical=False)
+    template = 1
+    while template > 0:
+        template = 0
         for path, value in leaf_values(cfg):
             if isinstance(value, str) and value.startswith('%') and value.endswith('%'):
                 meta_var = '/' + (value[1:-1].replace('.', '/'))
                 try:
                     v = dpath.util.get(cfg, meta_var)
+                    template += 1
                 except KeyError:
-                    v = dpath.util.get(namespace, meta_var)
+                    try:
+                        v = dpath.util.get(namespace, meta_var)
+                        template += 1
+                    except:
+                        v = value  # unchanged
                 dpath.util.new(cfg, path, v)
-                template = True
+
+    if SBox(cfg, default_box=True).generic.enable_python_codes == True or True:
+        template = 1
+        while template > 0:
+            template = 0
+            for path, value in leaf_values(cfg):
+                if isinstance(value, str) and value.startswith('${') and value.endswith('}'):
+                    expr = value[2:-1]
+                    value = eval(expr)
+                    dpath.util.new(cfg, path, value)
+
     return cfg
 
 

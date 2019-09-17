@@ -1,6 +1,5 @@
 # other files
 .duecredit.p
-.env
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
