@@ -14,6 +14,7 @@ from flashlight.auto import auto_init
 import flashlight.env
 import flashlight.engine
 import flashlight.auto
+import flashlight.credits
 import os
 from dotenv import load_dotenv
 load_dotenv()
