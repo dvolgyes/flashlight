@@ -3,19 +3,18 @@
 # Flashlight.auto
 
 from loguru import logger
-from ..env import detect_libs, free_space
-from flashlight.env import cfg_reader
-from flashlight.util import resolve_environment
-from flashlight.util import ensure_reproducible_results
+from flashlight.env import detect_libs, free_space, cfg_reader
+from flashlight.models import get_model
+from flashlight.util import resolve_environment, ensure_reproducible_results
 from flashlight.engine import Engine
+from flashlight.optim import get_optimizer, get_scheduler
+
 from pathlib import Path
 import os
 import pyfiglet
 from textwrap import indent
 import termtables as tt
 import sys
-from dotenv import load_dotenv
-load_dotenv()
 
 
 def generic_report():
@@ -56,20 +55,18 @@ def auto_init(section=None):
     # ~ generic_report()
     cfg = auto_cfg()
     logger.debug('Configuration:\n' + cfg.yaml)
+
+    model = get_model(cfg.model)
+    optimizer = get_optimizer(cfg.model.optimizer)(
+        model.parameters(), **cfg.model.optimizer.kwargs)
+    scheduler = get_scheduler(cfg.model.scheduler)
+    scheduler = scheduler(optimizer, **cfg.model.scheduler.kwargs)
+
     if section is None:
-        engine = Engine(cfg)
+        engine = Engine(cfg, model, optimizer, scheduler)
     else:
-        engine = Engine(cfg[section])
+        engine = Engine(cfg[section], model, optimizer, scheduler)
     return engine
-    # ~ results = []
-    # ~ names = [name.split('.')[0] for name in sys.modules.keys()]
-    # ~ for lib in ['numpy', 'torch', 'scipy', 'torchvision']:
-    # ~ d = detect_libs(lib)
-    # ~ if d['enabled']:
-    # ~ results.append( (d['name'],d['version']))
-    # ~ if len(results):
-    # ~ s = indent(tt.to_string(results),'    ')
-    # ~ logger.info(f'Imported libraries:\n{s}')
 
 
 def auto_cfg():

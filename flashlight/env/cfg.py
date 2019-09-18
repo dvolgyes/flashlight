@@ -8,7 +8,10 @@ from flashlight.util import resolve_templates
 def cfg_reader(filenames):
     def _read(fname):
         with open(fname, 'r') as stream:
-            cfg = SBox(yaml.safe_load(stream), default_box=True)
+            try:
+                cfg = SBox(yaml.safe_load(stream), default_box=True)
+            except ValueError:
+                cfg = SBox(default_box=True)
         return cfg
 
     cfg = SBox(default_box=True)

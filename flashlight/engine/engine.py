@@ -8,11 +8,14 @@ DBox = partial(SBox, default_box=True)
 
 class Engine:
 
-    def __init__(self, cfg, **kwargs):
+    def __init__(self, cfg, model, optimizer, scheduler, **kwargs):
         self.state = DBox()
         self.cfg = cfg
         self.handlers = {}
         self.state.terminate = False
+        self.model = model
+        self.optimizer = optimizer
+        self.scheduler = scheduler
 
     def _fire(self, event, log_remark=''):
         if event not in self.handlers:
@@ -48,43 +51,55 @@ class Engine:
         self.optimizer.zero_grad()
 
         self._fire('STARTED')
+        self.cfg.engine.super_batch = self.cfg.engine.get('super_batch', '1')
         while self.state.epoch < self.cfg.engine.max_epochs or self.state.terminate:  # EPOCH
             self.model.train()
             self.state.epoch += 1
             self._fire('EPOCH_STARTED', f'Epoch #{self.state.epoch}: ')
-            self.state.grad_accumulator_counter = 0
-            self.state.batch = 0
+            self.state.super_batch = 0
             self.state.optimizer_steps = 0
+            self.state.iteration += 1
             for b, data in enumerate(('1', '2', '3', '4')):  # ITERATION
-                self.state.iteration += 1
-                self.state.batch = b + 1
+
+                self.state.super_batch = b + 1
                 self._fire(
                     'ITERATION_STARTED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
                 self._fire(
-                    'BATCH_LOADED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.batch}: ')
+                    'BATCH_LOADED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.super_batch}: ')
                 self._fire(
-                    'BATCH_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.batch}: ')
-                self.state.grad_accumulator_counter += 1
-                if 'grad_accumulation' not in self.cfg.engine or self.state.grad_accumulator_counter % self.cfg.engine.grad_accumulation == 0:
+                    'BATCH_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.super_batch}: ')
+
+                if self.state.super_batch % self.cfg.engine.super_batch == 0:
                     self._fire(
-                        'OPTIMIZATION', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.batch}: ')
+                        'OPTIMIZATION', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.super_batch}: ')
+
+                    self.optimizer.step()
+                    self.state.optimizer_steps += 1
                     self._fire(
                         'OPTIMIZATION_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.batch}: ')
-                    self.state.grad_accumulator_counter = 0
+                    self.state.super_batch = 0
+                    self.scheduler.step()
+                    self._fire(
+                        'SCHEDULER_FINISHED', f'Optimization step #{self.state.optimizer_steps}, learning rate(s): ')
+                    self.optimizer.zero_grad()
+                    self._fire(
+                        'ITERATION_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
+
+            if self.state.super_batch > 0:
                 self._fire(
-                    'ITERATION_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
-            if self.state.grad_accumulator_counter > 0:
+                    'OPTIMIZATION', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.super_batch}: ')
+
+                self.optimizer.step()
                 self.state.optimizer_steps += 1
                 self._fire(
-                    'OPTIMIZATION', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.batch}: ')
-                self.optimizer.step()
-                self.optimizer.zero_grad()
+                    'OPTIMIZATION_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.batch}: ')
+                self.state.super_batch = 0
                 self.scheduler.step()
-                self._fire('OPTIMIZATION_FINISHED',
-                           f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.batch}: ')
                 self._fire(
                     'SCHEDULER_FINISHED', f'Optimization step #{self.state.optimizer_steps}, learning rate(s): ')
-                self.state.grad_accumulator_counter = 0
+                self.optimizer.zero_grad()
+                self._fire(
+                    'ITERATION_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
 
             self.model.eval()
             self._fire('PRE_VALIDATION', f'Epoch #{self.state.epoch}:')

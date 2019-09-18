@@ -110,10 +110,18 @@ def resolve_templates(cfg, namespace=None):
         while template > 0:
             template = 0
             for path, value in leaf_values(cfg):
-                if isinstance(value, str) and value.startswith('${') and value.endswith('}'):
-                    expr = value[2:-1]
-                    value = eval(expr)     # noqa: S307
-                    dpath.util.new(cfg, path, value)
+                if isinstance(value, str):
+                    value = value.strip()
+                    if value.startswith('${') and value.endswith('}'):
+                        expr = value[2:-1]
+                        value = eval(expr)     # noqa: S307
+                        dpath.util.new(cfg, path, value)
+                    # ~ if value.startswith('$(') and value.endswith(')'):
+                        # ~ print("templates???")
+                        # ~ expr = value[2:-1]
+                        # ~ value = partial(eval,expr)     # noqa: S307
+                        # ~ print("xxxxxxxxxxxxxxxx",value)
+                        # ~ dpath.util.new(cfg, path, value)
 
     return cfg
 

@@ -2,23 +2,34 @@
 
 # Flashlight.optim
 
-import torch
+import torch      # noqa: F401
 from .radam import RAdam
 from .ranger import Ranger
+from importlib import import_module
 
 
-def get_optimizer(params, **kwargs):
-    name = kwargs['name'].lower()
-    kwargs = kwargs.copy()
-    kwargs.pop('name')
-    optimizer_class = {
-        'sgd': torch.optim.SGD,
-        'adam': torch.optim.Adam,
-        'radam': RAdam,
-        'ranger': Ranger,
-    }[name]
+def get_optimizer(cfg):
+    name = cfg.name
+    optimizer_classes = {
+        'RAdam': RAdam,
+        'Ranger': Ranger,
+    }
+    module = cfg.get('module', 'torch.optim')
+    if name in optimizer_classes:
+        opt = optimizer_classes[name]
+    else:
+        mod = import_module(module)
+        optimizer_class = getattr(mod, name)
+        opt = optimizer_class
+    return opt
 
-    return optimizer_class(params, **kwargs)
+
+def get_scheduler(cfg):
+    name = cfg.name
+    module = cfg.get('module', 'torch.optim.lr_scheduler')
+    mod = import_module(module)
+    scheduler_class = getattr(mod, name)
+    return scheduler_class
 
 
-__all__ = ['get_optimizer', 'RAdam', 'Ranger']
+__all__ = ['get_optimizer', 'get_scheduler', 'RAdam', 'Ranger']
