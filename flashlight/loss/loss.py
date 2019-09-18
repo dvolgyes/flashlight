@@ -8,7 +8,7 @@ from importlib import import_module
 from box import SBox
 import numpy as np
 from loguru import logger
-from torch.nn import BCELoss
+
 
 def import_function(name):
     relatives = 0
@@ -46,14 +46,10 @@ def loss_function_cls(prediction, target, cfg):
     }
 
     lossDict = SBox()
-    relative_calc = False
     total = 0
     np_losses = SBox()
-    relative_calc = False
     for name, loss in cfg.loss.items():
         params = {**namespace, **loss.kwargs}
-        if 'relative_weight' in loss:
-            relative_calc = True
         args = [params[x] for x in loss.signature]
 
         fn, cls = parametrized_loss(loss.function)
@@ -78,6 +74,7 @@ def loss_function_cls(prediction, target, cfg):
     lossDict['total'] = dcn(total)
 
     return total.mean(), lossDict
+
 
 def loss_function_location(prediction, heatmap, target, cfg):
     target2d = target[:, :, 0:2]
@@ -126,7 +123,8 @@ def loss_function_location(prediction, heatmap, target, cfg):
                     f'Relative weighting enabled {low}<{ratio_old}<{high} = {low<ratio_old<high}'
                 )
                 if not (low < ratio_old < high):
-                    logger.warning(f'Loss ({name}) relative weight is adjusted.')
+                    logger.warning(
+                        f'Loss ({name}) relative weight is adjusted.')
                     ratio_new = np.clip(ratio_old, low, high)
                     lossDict[name] = lossDict[name] * (ratio_new / ratio_old)
     total = 0

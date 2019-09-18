@@ -4,8 +4,8 @@ from box import SBox
 import dpath
 import os
 import yaml
-import torch
-import numpy as np
+import torch               # noqa: F401
+import numpy as np         # noqa: F401
 import psutil
 
 
@@ -101,18 +101,18 @@ def resolve_templates(cfg, namespace=None):
                     try:
                         v = dpath.util.get(namespace, meta_var)
                         template += 1
-                    except:
+                    except KeyError:
                         v = value  # unchanged
                 dpath.util.new(cfg, path, v)
 
-    if SBox(cfg, default_box=True).generic.enable_python_codes == True or True:
+    if SBox(cfg, default_box=True).generic.enable_python_codes:
         template = 1
         while template > 0:
             template = 0
             for path, value in leaf_values(cfg):
                 if isinstance(value, str) and value.startswith('${') and value.endswith('}'):
                     expr = value[2:-1]
-                    value = eval(expr)
+                    value = eval(expr)     # noqa: S307
                     dpath.util.new(cfg, path, value)
 
     return cfg

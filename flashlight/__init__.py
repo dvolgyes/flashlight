@@ -9,12 +9,15 @@ __license__ = 'BSD'
 __author__ = 'David Völgyes'
 __email__ = 'david.volgyes@ieee.org'
 
-from loguru import logger
-from flashlight.auto import auto_init
-import flashlight.env
-import flashlight.engine
-import flashlight.auto
-import flashlight.credits
-import os
 from dotenv import load_dotenv
 load_dotenv()
+
+import flashlight.auto  # noqa: E402
+import flashlight.credits  # noqa: E402
+import flashlight.engine  # noqa: E402
+import flashlight.env  # noqa: E402
+import flashlight.loss  # noqa: E402
+import flashlight.models  # noqa: E402
+import flashlight.optim  # noqa: E402
+import flashlight.plot  # noqa: E402
+import flashlight.util  # noqa: E402, F401

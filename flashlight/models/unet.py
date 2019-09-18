@@ -80,7 +80,8 @@ class UNet(nn.Module):
         self.down_path = nn.ModuleList()
         for i in range(depth):
             self.down_path.append(
-                UNetConvBlock(prev_channels, no_of_filters(i, wf), padding, batch_norm)
+                UNetConvBlock(prev_channels, no_of_filters(
+                    i, wf), padding, batch_norm)
             )
             prev_channels = no_of_filters(i, wf)
 
@@ -88,7 +89,8 @@ class UNet(nn.Module):
         for i in reversed(range(depth - 1)):
             self.up_path.append(
                 UNetUpBlock(
-                    prev_channels, no_of_filters(i, wf), up_mode, padding, batch_norm
+                    prev_channels, no_of_filters(
+                        i, wf), up_mode, padding, batch_norm
                 )
             )
             prev_channels = no_of_filters(i, wf)
@@ -163,7 +165,8 @@ class UNetUpBlock(nn.Module):
                 nn.Conv2d(in_size, out_size, kernel_size=1),
             )
         elif up_mode == 'upconv':
-            self.up = nn.ConvTranspose2d(in_size, out_size, kernel_size=2, stride=2)
+            self.up = nn.ConvTranspose2d(
+                in_size, out_size, kernel_size=2, stride=2)
         elif up_mode == 'linear':
             self.up = nn.Sequential(
                 nn.Upsample(mode='linear', scale_factor=2),
@@ -193,7 +196,7 @@ class UNetUpBlock(nn.Module):
         diff_y = (layer_height - target_size[0]) // 2
         diff_x = (layer_width - target_size[1]) // 2
         return layer[
-            :, :, diff_y : (diff_y + target_size[0]), diff_x : (diff_x + target_size[1])
+            :, :, diff_y:(diff_y + target_size[0]), diff_x:(diff_x + target_size[1])
         ]
 
     def forward(self, x, bridge):

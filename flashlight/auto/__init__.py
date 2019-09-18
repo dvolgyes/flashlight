@@ -3,8 +3,6 @@
 # Flashlight.auto
 
 from loguru import logger
-import yaml
-import dpath
 from ..env import detect_libs, free_space
 from flashlight.env import cfg_reader
 from flashlight.util import resolve_environment
@@ -30,7 +28,7 @@ def generic_report():
     results.append(('Conda environment', CONDA))
 
     s = tt.to_string(results)
-    logger.info('\n'+indent(f'Base system information:\n{s}', ' '*4))
+    logger.info('\n' + indent(f'Base system information:\n{s}', '     '))
 
     detected_libs = []
     for f in ['requirements-conda.txt', 'requirements.txt']:
@@ -48,16 +46,16 @@ def generic_report():
     if len(detected_libs):
         s = tt.to_string(detected_libs, header=['package name', 'version'])
         logger.info(
-            '\n'+indent(f'Imported non-standard libraries:\n{s}', ' '*4))
+            '\n' + indent(f'Imported non-standard libraries:\n{s}', '    '))
 
 
 def auto_init(section=None):
     global engine
     logger.success(
-        '\n'+indent(pyfiglet.figlet_format('Flashlight', 'cybermedium'), '    '))
+        '\n' + indent(pyfiglet.figlet_format('Flashlight', 'cybermedium'), '    '))
     # ~ generic_report()
     cfg = auto_cfg()
-    logger.debug('Configuration:\n'+cfg.yaml)
+    logger.debug('Configuration:\n' + cfg.yaml)
     if section is None:
         engine = Engine(cfg)
     else:

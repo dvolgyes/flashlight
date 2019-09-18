@@ -22,4 +22,5 @@ dependencies:
   - mkl
   - mkl-service
   - blas=*=mkl
+  - pygments
 #  - cpuonly

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from box import SBox, BoxList
+from box import SBox
 from functools import partial
 from loguru import logger
 
@@ -11,7 +11,7 @@ class Engine:
     def __init__(self, cfg, **kwargs):
         self.state = DBox()
         self.cfg = cfg
-        self.handlers = dict()
+        self.handlers = {}
         self.state.terminate = False
 
     def _fire(self, event, log_remark=''):
@@ -29,7 +29,7 @@ class Engine:
     def remove_event_handler(self, event, func):
         try:
             self.handlers[event].remove(func)
-        except:
+        except ValueError:
             pass
 
     def on(self, event, *args, **kwargs):
@@ -57,7 +57,7 @@ class Engine:
             self.state.optimizer_steps = 0
             for b, data in enumerate(('1', '2', '3', '4')):  # ITERATION
                 self.state.iteration += 1
-                self.state.batch = b+1
+                self.state.batch = b + 1
                 self._fire(
                     'ITERATION_STARTED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
                 self._fire(

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# Flashlight.credits
+
 from duecredit import due, BibTeX
 
 # ugly hack for inserting otherwise missing citations.
