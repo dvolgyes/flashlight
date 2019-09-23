@@ -23,4 +23,5 @@ import flashlight.optim  # noqa: E402
 import flashlight.plot  # noqa: E402
 import flashlight.util  # noqa: E402, F401
 
+
 __all__ = ['auto_init']

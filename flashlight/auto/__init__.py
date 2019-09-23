@@ -42,10 +42,20 @@ def generic_report():
                             d = detect_libs(lib)
                             if d['enabled']:
                                 detected_libs.append((d['name'], d['version']))
+
     if len(detected_libs):
         s = tt.to_string(detected_libs, header=['package name', 'version'])
         logger.info(
             '\n' + indent(f'Imported non-standard libraries:\n{s}', '    '))
+# ~ if __name__ == '__main__':
+    # ~ import sys
+    # ~ import termtables
+    # ~ import rapidtables
+    # ~ import torch
+    # ~ import contracts
+    # ~ found, not_found = [],[]
+# ~ for m in sys.modules:
+# ~ print(rapidtables.make_table(found, tablefmt='raw'))
 
 
 def auto_init(section=None):
