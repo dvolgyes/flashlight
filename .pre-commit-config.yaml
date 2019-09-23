@@ -58,7 +58,7 @@ repos:
             flake8-2020,
             flake8-print,
             pep8-naming]
-        args: ['--max-line-length=120', '--ignore=E801,E501,E116,E265,E203,W503,N806,E800,N812,N816']
+        args: ['--max-line-length=160', '--ignore=E801,E501,E402,E116,E265,E203,W503,N806,E800,N812,N816']
 
 -   repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.4.1  # Use the ref you want to point at
@@ -75,3 +75,4 @@ repos:
     rev: v1.4.4  # Use the sha / tag you want to point at
     hooks:
     -   id: autopep8
+        args: ['--ignore=E402','--select=E226', '-aaa', '--max-line-lengt=160']
