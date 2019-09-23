@@ -2,6 +2,7 @@ better_exceptions
 decopatch
 dsntnn
 duecredit
+highresnet
 psutil
 pycontracts
 pygments

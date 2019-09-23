@@ -134,3 +134,6 @@ def loss_function_location(prediction, heatmap, target, cfg):
     lossDict['total'] = dcn(total)
 
     return total.mean(), lossDict
+
+
+# ~ def partial_cross_entropy(prediction, target, mask):

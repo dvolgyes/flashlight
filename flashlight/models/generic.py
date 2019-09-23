@@ -8,6 +8,7 @@ from loguru import logger
 # local models
 from .unet import UNet
 from .unetcoord import UNetCoordreg
+from highresnet import HighRes3DNet
 
 
 def get_model(cfg):
@@ -15,10 +16,13 @@ def get_model(cfg):
         source = cfg['src']
     else:
         source = cfg.get('source', 'local')
-    name = cfg.name.lower()
     # sources: local, torchvision, modelzoo, torchhub
     if source == 'local':
-        modelclass = {'unet': UNet, 'unetcoordreg': UNetCoordreg}[name]
+        name = cfg.name.lower()
+        modelclass = {'unet': UNet,
+                      'unetcoordreg': UNetCoordreg,
+                      'highres3Dnet': HighRes3DNet,
+                      }[name]
         model = modelclass(**cfg.kwargs)
     elif source == 'torchhub':
         model = torch.hub.load(cfg['url'], name, **cfg['kwargs'])
