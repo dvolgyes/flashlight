@@ -6,4 +6,7 @@ highresnet
 psutil
 pycontracts
 pygments
+pywarm
 stdlib_list
+termcolor
+termtables
