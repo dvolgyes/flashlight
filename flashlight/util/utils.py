@@ -12,7 +12,7 @@ from importlib import import_module
 from loguru import logger
 from pathlib import Path
 from contracts import contract
-import yaml
+import operator
 
 
 @function_decorator
@@ -61,13 +61,25 @@ def gc_after(f=DECORATED):
     return new_f
 
 
+def dict_op(d1, d2, op=operator.add):
+    result = SBox(default_box=True)
+    for key in set(d1.keys()) & set(d2.keys()):
+        result[key] = op(d1[key], d2[key])
+    for key in set(d1.keys()) - set(d2.keys()):
+        result[key] = d1[key]
+    for key in set(d2.keys()) - set(d1.keys()):
+        result[key] = d2[key]
+    return result
+
+
 def dcn(*args):
     results = []
     for x in args:
         if isinstance(x, (dict, SBox, Box)):
             for key in x.keys():
                 x[key] = dcn(x[key])
-        if not isinstance(x, (int, np.float32, np.float64,  np.ndarray, dict, SBox, Box)):
+        if not isinstance(x, (int, float, np.uint8, np.uint16, np.uint32, np.uint64, bool, np.bool, np.bool_,
+                              np.int8, np.int16, np.int32, np.int64, np.float32, np.float64, np.ndarray, dict, SBox, Box)):
             results.append(x.detach().cpu().numpy())
         else:
             results.append(x)
@@ -77,12 +89,20 @@ def dcn(*args):
 
 
 def dcnm(*args):
-    results = [np.mean(dcn(arg)) for arg in args]
+    results = []
+    for arg in args:
+        d = dcn(arg)
+        if isinstance(d, np.ndarray):
+            results = np.mean(dcn(arg))
+        else:
+            results = d
+
     if len(results) == 1:
         return results[0]
     return tuple(results)
 
 
+@contract(name='str')
 def import_function(name):
     relatives = 0
     base = name.strip('.')

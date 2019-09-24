@@ -43,7 +43,6 @@ repos:
             flake8-comprehensions,
             flake8-debugger,
             flake8-eradicate,
-            flake8-if-expr,
             flake8-logging-format,
             flake8-pep3101,
             flake8-polyfill,
@@ -75,4 +74,4 @@ repos:
     rev: v1.4.4  # Use the sha / tag you want to point at
     hooks:
     -   id: autopep8
-        args: ['--ignore=E402', '--select=E226', '-aaa', '--max-line-lengt=160']
+        args: ['--ignore=E402', '--select=E226', '-aaa', '--max-line-lengt=160', '--in-place']

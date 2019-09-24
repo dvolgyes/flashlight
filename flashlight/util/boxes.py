@@ -14,6 +14,7 @@ def box_from_file(fname):
     with open(fname) as fh:
         return SBox(yaml.safe_load(fh), default_box=True)
 
+
 @contract
 def leaf_values(d, sep='/'):
     """Returning full access path iterator for dictionary/box leaf values.

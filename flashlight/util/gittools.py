@@ -22,16 +22,19 @@ def git_synchronize(repo):
     origin.push()
 
 
-def git_summary():
-    repo = git.Repo(search_parent_directories=True)
-    sha = repo.head.commit.hexsha
-    msg = repo.head.commit.message.strip()
-    tz = timezone(timedelta(seconds=-repo.head.commit.committer_tz_offset))
-    date = datetime.fromtimestamp(repo.head.commit.committed_date, tz=tz)
-    date = date.strftime('%Y %b %d, %H:%M:%S %Z')
-    dirty = repo.is_dirty()
-    if dirty:
-        changes = git_changes(repo)
-    else:
-        changes = None
-    return sha, msg, date, dirty, changes
+def git_summary(working_dir='.'):
+    try:
+        repo = git.Repo(working_dir, search_parent_directories=True)
+        sha = repo.head.commit.hexsha
+        msg = repo.head.commit.message.strip()
+        tz = timezone(timedelta(seconds=-repo.head.commit.committer_tz_offset))
+        date = datetime.fromtimestamp(repo.head.commit.committed_date, tz=tz)
+        date = date.strftime('%Y %b %d, %H:%M:%S %Z')
+        dirty = repo.is_dirty()
+        if dirty:
+            changes = git_changes(repo)
+        else:
+            changes = None
+        return sha, msg, date, dirty, changes
+    except git.exc.InvalidGitRepositoryError:
+        return None, None, None, False, None

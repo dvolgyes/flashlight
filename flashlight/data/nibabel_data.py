@@ -4,6 +4,7 @@ from pathlib import Path
 import nibabel
 import numpy as np
 
+
 def one_hot_encoding(array, classes, dtype=np.uint8, swapaxes=False):  # for single batch
     if classes < np.unique(array).size:
         raise ValueError('One hot encoding Number of classes is less than the number of unique values.')
@@ -53,19 +54,19 @@ class MedVolume(torch.utils.data.Dataset):
                 self.weak_supervision = np.any(vol == self.undefined)
                 self.volumes[key] = torch.from_numpy(vol)
 
-            axes = np.roll(range(vol.ndim),vol.ndim-2)
+            axes = np.roll(range(vol.ndim), vol.ndim - 2)
             self.volumes[key] = self.volumes[key].permute(tuple(axes))
 
         if self.weak_supervision:
             self.volumes['mask'] = self.volumes['label'] == self.undefined
         else:
-            self.volumes['mask'] = torch.Tensor().new_ones(self.volumes['label'].shape,dtype=bool)
+            self.volumes['mask'] = torch.Tensor().new_ones(self.volumes['label'].shape, dtype=bool)
 
     def __getitem__(self, idx):
         if len(self.volumes) == 0:
             self.initialize()
 
-        if idx<0 or idx>=len(self):
+        if idx < 0 or idx >= len(self):
             raise IndexError
 
         result = {'weight': self.weight,
@@ -73,13 +74,12 @@ class MedVolume(torch.utils.data.Dataset):
 
         for key in self.volumes:
             if key == 'input':
-                result[key] = self.volumes[key][idx:idx + self.window,...].unsqueeze(0)
+                result[key] = self.volumes[key][idx:idx + self.window, ...].unsqueeze(0)
             elif key in ['label', 'mask']:
-                result[key] = self.volumes[key][idx,...].unsqueeze(0)
+                result[key] = self.volumes[key][idx, ...].unsqueeze(0)
             else:
                 pass
                 # ~ raise ValueError('unexpected label')
-            print(result[key].shape)
         return result
 
     def __len__(self):
@@ -101,12 +101,11 @@ class PatientDB(torch.utils.data.Dataset):
                     item[k] = config.generic.directory / item[k]
             self.volumes.append(MedVolume(item, config.generic))
 
-
     def __len__(self):
         return len(self.volumes)
 
     def __getitem__(self, idx):
-        if idx<0 or idx>=len(self):
+        if idx < 0 or idx >= len(self):
             raise IndexError
 
         return self.volumes[idx]

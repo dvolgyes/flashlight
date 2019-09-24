@@ -2,7 +2,6 @@
 import sys
 import os
 from contextlib import contextmanager
-import importlib
 from pathlib import Path
 from pygments import highlight
 from pygments.lexers import PythonLexer
@@ -43,7 +42,7 @@ def detect_libs(lib, name=None):
     enabled, version = False, 'N/A'
     enabled = lib in sys.modules
     version = pkg_resources.get_distribution(lib).version
-    name =  pkg_resources.get_distribution(lib).project_name
+    name = pkg_resources.get_distribution(lib).project_name
     return {
         'version': version,
         'enabled': enabled,

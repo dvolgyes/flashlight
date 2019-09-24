@@ -8,7 +8,7 @@ from loguru import logger
 # local models
 from .unet import UNet
 from .unetcoord import UNetCoordreg
-from highresnet import HighRes3DNet,HighRes2DNet,HighResNet
+from highresnet import HighRes3DNet, HighRes2DNet, HighResNet
 
 
 def get_model(cfg):

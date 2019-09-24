@@ -9,6 +9,7 @@ __license__ = 'BSD'
 __author__ = 'David Völgyes'
 __email__ = 'david.volgyes@ieee.org'
 
+from pathlib import Path
 import flashlight.util  # noqa: E402, F401
 from flashlight.auto import auto_init
 from dotenv import load_dotenv
@@ -26,3 +27,8 @@ import flashlight.data  # noqa: E402, F401
 
 
 __all__ = ['auto_init']
+
+sha, msg, date, dirty, changes = flashlight.util.git_summary(Path(__file__).parent)
+if sha:
+    dirty = '.dirty' if dirty else ''
+    __version__ = f'{__version__}.git_{sha[:8]}{dirty}'

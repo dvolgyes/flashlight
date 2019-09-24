@@ -42,14 +42,14 @@ def l2(prediction, target):
 class LossEvaluator:
 
     def __init__(self, cfg):
-        self.cfg=cfg
+        self.cfg = cfg
         self.loss_fn = {}
         for name, loss in self.cfg.items():
             fn, cls = parametrized_loss(loss.function)
             if cls:
                 fn = fn(**loss.kwargs)
             else:
-                if len(loss.kwargs)>0:
+                if len(loss.kwargs) > 0:
                     fn = partial(fn, **loss.kwargs)
             self.loss_fn[name] = fn
 
@@ -63,31 +63,25 @@ class LossEvaluator:
 
             w = loss.get('weight', 1.0)
             L = torch.squeeze(w * fn(*args))
-            print(L)
             N = len(L.shape)
             if N > 1:
                 dims = tuple(range(1, N))
                 lossDict[name] = L.sum(dim=dims)
             else:
                 lossDict[name] = L
-        print(lossDict)
         total = 0
         for key in lossDict:
-            print(lossDict[key])
             total = lossDict[key] + total
-            #lossDict[key] = dcn(lossDict[key])
-        # ~ lossDict['total'] = dcn(total)
         lossDict['total'] = total
 
         return total.mean(), lossDict
-
 
 
 def loss_function_cls(prediction, label, cfg):
 
     namespace = {
         'prediction': torch.squeeze(prediction),
-        'label': torch.squeeze(target),
+        'label': torch.squeeze(label),
     }
 
     lossDict = SBox()
