@@ -126,9 +126,9 @@ class UNetConvBlock(nn.Module):
                 dilation=dilation,
             )
         )
-        # ~ block.append(nn.ReLU())
+        block.append(nn.ReLU())
         # ~ block.append(nn.Tanh())
-        block.append(nn.SELU())
+        # ~ block.append(nn.SELU())
 
         if batch_norm:
             block.append(nn.BatchNorm2d(out_size))
@@ -142,9 +142,9 @@ class UNetConvBlock(nn.Module):
                 dilation=dilation,
             )
         )
-        # ~ block.append(nn.ReLU())
+        block.append(nn.ReLU())
         # ~ block.append(nn.Tanh())
-        block.append(nn.SELU())
+        # ~ block.append(nn.SELU())
         if batch_norm:
             block.append(nn.BatchNorm2d(out_size))
 
