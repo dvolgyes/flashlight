@@ -9,6 +9,7 @@ __license__ = 'BSD'
 __author__ = 'David Völgyes'
 __email__ = 'david.volgyes@ieee.org'
 
+import flashlight.util  # noqa: E402, F401
 from flashlight.auto import auto_init
 from dotenv import load_dotenv
 load_dotenv()
@@ -21,7 +22,7 @@ import flashlight.loss  # noqa: E402
 import flashlight.models  # noqa: E402
 import flashlight.optim  # noqa: E402
 import flashlight.plot  # noqa: E402
-import flashlight.util  # noqa: E402, F401
+import flashlight.data  # noqa: E402, F401
 
 
 __all__ = ['auto_init']

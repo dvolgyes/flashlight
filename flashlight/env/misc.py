@@ -40,31 +40,10 @@ def env_variable(name, global_env):
 
 
 def detect_libs(lib, name=None):
-    enabled, version = False, False, 'N/A'
+    enabled, version = False, 'N/A'
     enabled = lib in sys.modules
-    module = None
-    try:
-        version = pkg_resources.get_distribution(lib).version
-    except pkg_resources.DistributionNotFound:
-        if enabled:
-            module = sys.modules[lib]
-        else:
-            module = importlib.import_module(lib)
-
-        version = getattrs(
-            module, ('__version__', 'VERSION', 'version'), 'unknown')
-        if version == 'unknown':
-            try:
-                v = importlib.import_module(f'{lib}.version')
-                version = getattrs(
-                    v, ('__version__', 'VERSION', 'version'), 'unknown')
-            except ImportError:
-                pass
-    if name is None and module is not None:
-        name = getattrs(module, ('__name__',), lib)
-    else:
-        name = lib
-
+    version = pkg_resources.get_distribution(lib).version
+    name =  pkg_resources.get_distribution(lib).project_name
     return {
         'version': version,
         'enabled': enabled,

@@ -11,6 +11,8 @@ from functools import partial
 from importlib import import_module
 from loguru import logger
 from pathlib import Path
+from contracts import contract
+import yaml
 
 
 @function_decorator
@@ -65,7 +67,7 @@ def dcn(*args):
         if isinstance(x, (dict, SBox, Box)):
             for key in x.keys():
                 x[key] = dcn(x[key])
-        if not isinstance(x, (np.float32, np.ndarray, dict, SBox, Box)):
+        if not isinstance(x, (int, np.float32, np.float64,  np.ndarray, dict, SBox, Box)):
             results.append(x.detach().cpu().numpy())
         else:
             results.append(x)

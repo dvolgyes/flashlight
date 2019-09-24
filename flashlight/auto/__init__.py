@@ -8,6 +8,8 @@ from flashlight.models import get_model
 from flashlight.util import resolve_environment, ensure_reproducible_results
 from flashlight.engine import Engine
 from flashlight.optim import get_optimizer, get_scheduler
+from flashlight.data import get_dataloaders
+from flashlight.loss import LossEvaluator
 
 from pathlib import Path
 import os
@@ -30,33 +32,18 @@ def generic_report():
     logger.info('\n' + indent(f'Base system information:\n{s}', '     '))
 
     detected_libs = []
-    for f in ['requirements-conda.txt', 'requirements.txt']:
-        reqs = Path(f)
-        if reqs.exists():
-            with open(reqs, 'rt') as f:
-                for line in f:
-                    lib = line.strip().split()
-                    if len(lib) > 0:
-                        lib = lib[0]
-                        if lib in sys.modules:
-                            d = detect_libs(lib)
-                            if d['enabled']:
-                                detected_libs.append((d['name'], d['version']))
-
+    for lib in {lib.split('.')[0] for lib in sys.modules} - {'sys'}:
+        if len(lib) > 0:
+            try:
+                d = detect_libs(lib)
+                if d['enabled']:
+                    detected_libs.append((d['name'], d['version']))
+            except:
+                pass
     if len(detected_libs):
-        s = tt.to_string(detected_libs, header=['package name', 'version'])
+        s = tt.to_string(tuple(detected_libs), header=['package name', 'version'])
         logger.info(
             '\n' + indent(f'Imported non-standard libraries:\n{s}', '    '))
-# ~ if __name__ == '__main__':
-    # ~ import sys
-    # ~ import termtables
-    # ~ import rapidtables
-    # ~ import torch
-    # ~ import contracts
-    # ~ found, not_found = [],[]
-# ~ for m in sys.modules:
-# ~ print(rapidtables.make_table(found, tablefmt='raw'))
-
 
 def auto_init(section=None):
     global engine
@@ -71,11 +58,14 @@ def auto_init(section=None):
         model.parameters(), **cfg.model.optimizer.kwargs)
     scheduler = get_scheduler(cfg.model.scheduler)
     scheduler = scheduler(optimizer, **cfg.model.scheduler.kwargs)
+    loss = LossEvaluator(cfg.loss)
+
+    data_loaders = get_dataloaders(cfg.data)
 
     if section is None:
-        engine = Engine(cfg, model, optimizer, scheduler)
+        engine = Engine(cfg, model, loss, optimizer, scheduler, data_loaders)
     else:
-        engine = Engine(cfg[section], model, optimizer, scheduler)
+        engine = Engine(cfg[section], model, optimizer, scheduler, data_loaders)
     return engine
 
 

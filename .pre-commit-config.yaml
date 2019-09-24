@@ -75,4 +75,4 @@ repos:
     rev: v1.4.4  # Use the sha / tag you want to point at
     hooks:
     -   id: autopep8
-        args: ['--ignore=E402','--select=E226', '-aaa', '--max-line-lengt=160']
+        args: ['--ignore=E402', '--select=E226', '-aaa', '--max-line-lengt=160']

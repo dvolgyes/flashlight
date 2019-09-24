@@ -9,6 +9,11 @@ import numpy as np         # noqa: F401
 import psutil
 
 
+@contract(fname='existing_file')
+def box_from_file(fname):
+    with open(fname) as fh:
+        return SBox(yaml.safe_load(fh), default_box=True)
+
 @contract
 def leaf_values(d, sep='/'):
     """Returning full access path iterator for dictionary/box leaf values.
@@ -92,36 +97,25 @@ def resolve_templates(cfg, namespace=None):
     while template > 0:
         template = 0
         for path, value in leaf_values(cfg):
-            if isinstance(value, str) and value.startswith('%') and value.endswith('%'):
-                meta_var = '/' + (value[1:-1].replace('.', '/'))
-                try:
-                    v = dpath.util.get(cfg, meta_var)
-                    template += 1
-                except KeyError:
+            if isinstance(value, str):
+                value = value.strip()
+                if value.startswith('%') and value.endswith('%'):
+                    meta_var = '/' + (value[1:-1].replace('.', '/'))
                     try:
-                        v = dpath.util.get(namespace, meta_var)
+                        v = dpath.util.get(cfg, meta_var)
                         template += 1
                     except KeyError:
-                        v = value  # unchanged
-                dpath.util.new(cfg, path, v)
-
-    if SBox(cfg, default_box=True).generic.enable_python_codes:
-        template = 1
-        while template > 0:
-            template = 0
-            for path, value in leaf_values(cfg):
-                if isinstance(value, str):
-                    value = value.strip()
+                        try:
+                            v = dpath.util.get(namespace, meta_var)
+                            template += 1
+                        except KeyError:
+                            v = value  # unchanged
+                    dpath.util.new(cfg, path, v)
+                elif SBox(cfg, default_box=True).generic.enable_python_codes:
                     if value.startswith('${') and value.endswith('}'):
                         expr = value[2:-1]
                         value = eval(expr)     # noqa: S307
                         dpath.util.new(cfg, path, value)
-                    # ~ if value.startswith('$(') and value.endswith(')'):
-                        # ~ print("templates???")
-                        # ~ expr = value[2:-1]
-                        # ~ value = partial(eval,expr)     # noqa: S307
-                        # ~ print("xxxxxxxxxxxxxxxx",value)
-                        # ~ dpath.util.new(cfg, path, value)
 
     return cfg
 

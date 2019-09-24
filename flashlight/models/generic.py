@@ -8,7 +8,7 @@ from loguru import logger
 # local models
 from .unet import UNet
 from .unetcoord import UNetCoordreg
-from highresnet import HighRes3DNet
+from highresnet import HighRes3DNet,HighRes2DNet,HighResNet
 
 
 def get_model(cfg):
@@ -21,7 +21,9 @@ def get_model(cfg):
         name = cfg.name.lower()
         modelclass = {'unet': UNet,
                       'unetcoordreg': UNetCoordreg,
-                      'highres3Dnet': HighRes3DNet,
+                      'highresnet': HighResNet,
+                      'highres3dnet': HighRes3DNet,
+                      'highres2dnet': HighRes2DNet,
                       }[name]
         model = modelclass(**cfg.kwargs)
     elif source == 'torchhub':

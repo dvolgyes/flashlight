@@ -8,6 +8,7 @@ from importlib import import_module
 from box import SBox
 import numpy as np
 from loguru import logger
+from functools import partial
 
 
 def import_function(name):
@@ -38,11 +39,55 @@ def l2(prediction, target):
     return torch.norm(target - prediction, dim=-1)
 
 
-def loss_function_cls(prediction, target, cfg):
+class LossEvaluator:
+
+    def __init__(self, cfg):
+        self.cfg=cfg
+        self.loss_fn = {}
+        for name, loss in self.cfg.items():
+            fn, cls = parametrized_loss(loss.function)
+            if cls:
+                fn = fn(**loss.kwargs)
+            else:
+                if len(loss.kwargs)>0:
+                    fn = partial(fn, **loss.kwargs)
+            self.loss_fn[name] = fn
+
+    def __call__(self, prediction, data):
+        lossDict = SBox()
+        for name, loss in self.cfg.items():
+
+            namespace = SBox({'prediction': prediction, **data}, default_box=True)
+            args = [namespace[x] for x in loss.signature]
+            fn = self.loss_fn[name]
+
+            w = loss.get('weight', 1.0)
+            L = torch.squeeze(w * fn(*args))
+            print(L)
+            N = len(L.shape)
+            if N > 1:
+                dims = tuple(range(1, N))
+                lossDict[name] = L.sum(dim=dims)
+            else:
+                lossDict[name] = L
+        print(lossDict)
+        total = 0
+        for key in lossDict:
+            print(lossDict[key])
+            total = lossDict[key] + total
+            #lossDict[key] = dcn(lossDict[key])
+        # ~ lossDict['total'] = dcn(total)
+        lossDict['total'] = total
+
+        return total.mean(), lossDict
+
+
+
+def loss_function_cls(prediction, label, cfg):
 
     namespace = {
         'prediction': torch.squeeze(prediction),
-        'target': torch.squeeze(target),
+        'label': torch.squeeze(target),
     }
 
     lossDict = SBox()
