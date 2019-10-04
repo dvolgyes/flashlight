@@ -2,6 +2,7 @@
 from contracts import contract, new_contract
 from pathlib import Path
 
+__placeholder__ = 'placeholder'
 
 @new_contract
 def path(p):

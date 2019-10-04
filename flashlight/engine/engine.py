@@ -6,6 +6,8 @@ import torch
 import warm
 import numpy as np
 from flashlight.util import dcn
+import sys
+
 
 DBox = partial(SBox, default_box=True)
 
@@ -25,14 +27,18 @@ class Engine:
         logger.info('Model description:\n' + warm.util.summary_str(self.model))
         self.state.summary_writers = DBox()
 
+
     def enable_automagic(self):
         self.add_event_handler('LOSS_UPDATED', self.log_loss)
+        self.add_event_handler('LOSS_UPDATED', self.loss_update)
         self.add_event_handler('CHECKPOINT', self.checkpoint_model)
+        self.add_event_handler('OPTIMIZATION', self.optimizer_step)
+
 
     def _fire(self, event, log_remark=''):
         if event not in self.handlers:
             self.handlers[event] = []
-        logger.warning(f'{log_remark}{event}')
+        logger.info(f'{log_remark}{event}')
         for handler in self.handlers[event]:
             handler(self.state)
 
@@ -59,18 +65,54 @@ class Engine:
             value = dcn(state.loss)[loss_name]
             state.summary_writers[state.phase][state.sub_phase].add_scalar(f'loss/{loss_name}', value, state.iteration)
             logger.success(f'loss/{loss_name}: {value}')
+            #~ state.summary_writers[state.phase][state.sub_phase].flush()
 
     def checkpoint_model(self, state):
         torch.save(self.model.state_dict(), state.logdir / f'checkpoint_model_{state.iteration}.pth')
         torch.save(self.optimizer.state_dict(), state.logdir / f'checkpoint_optim_{state.iteration}.state')
 
+    def zero_grad(self):
+        self.optimizer.zero_grad()
+        self.state.loss_step = 0
+        for k in self.state.loss:
+            self.state.loss[k] = 0
+            self.state.mean_loss[k] = 0
+            self.state.cummulative_loss[k] = 0
+        self.state.diversity_data = None
+
+    def optimizer_step(self,state):
+        self.optimizer.step()
+        self.state.optimizer_steps += 1
+        self._fire('OPTIMIZATION_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}')
+
+        if 'metrics' in self.scheduler.step.__code__.co_varnames:
+            self.scheduler.step(metrics=self.state.mean_loss['total'])
+        else:
+            self.scheduler.step()
+
+        self._fire('SCHEDULER_FINISHED')
+
+        self._fire('ITERATION_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
+        self.zero_grad()
+        self.state.iteration += 1
+
+
+
+    def loss_update(self,state):
+        self.state.loss_step += 1
+        for k in self.state.loss:
+            self.state.cummulative_loss[k] = self.state.cummulative_loss.get(k,0) + self.state.loss[k]
+            self.state.mean_loss[k] = self.state.cummulative_loss[k] / self.state.loss_step
+
+
     def run(self, *args, **kwargs):
 
         self.state.epoch = 0
         self.state.iteration = 0
-
+        self.state.loss_step = 0
+        self.device = self.cfg.generic.device
         self.optimizer.zero_grad()
-
+        self.model.to(self.device)
         self._fire('STARTED')
         self.cfg.engine.super_batch = self.cfg.engine.get('super_batch', '1')
         while self.state.epoch < self.cfg.engine.num_epochs or self.state.terminate:  # EPOCH
@@ -80,6 +122,7 @@ class Engine:
             self.state.super_batch = 0
             self.state.optimizer_steps = 0
             self.state.iteration += 1
+
             for dataloader_name, dataloader in self.dataloaders['train'].items():
                 self.state.phase = 'train'
                 self.state.sub_phase = dataloader_name
@@ -92,87 +135,79 @@ class Engine:
                 else:
                     super_batch = 1
 
-                for dataset in dataloader:    # ITERATION
+
+                for data in dataloader:    # ITERATION
                     self._fire('ITERATION_STARTED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
-                    if not isinstance(dataset, torch.utils.data.Dataset):
-                        dataset = (dataset,)
+                    #~ self._fire('BATCH_LOADED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, super batch #{self.state.super_batch} mini-batch {k} ({idx}) of {N}: ')
+                    self._fire('BATCH_LOADED')
 
-                    loss = 0
-                    for k, data in enumerate(dataset):
-                        self._fire(
-                            'BATCH_LOADED',
-                            f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.super_batch} mini-batch #{k}: ')
-                        self._fire('BATCH_FINISHED',
-                                   f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.super_batch} mini-batch #{k}: ')
+                    for key in data:
+                        if hasattr(data[key],'to'):
+                            data[key] = data[key].to(self.device)
 
-                        output = self.model(data['input'])
+                    output = self.model(data['input'])
+                    n,c,*dims = output.shape
 
-                        total, lossDict = self.loss_function(output, data)
+                    output = output.view(n,self.cfg.model.n_classes,-1,*dims)
 
-                        loss = dcn(total) + dcn(loss)
-                        total.backward()
+                    self._fire('BATCH_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, super batch #{self.state.super_batch} mini-batch {k} of {N}: ')
 
-                        self.state.loss = dcn(lossDict)
+                    total, lossDict = self.loss_function(output, data)
+                    total.backward()
 
-                        self.state.data = dcn(data)
-                        self.state.output = dcn(output)
+                    self.state.loss = dcn(lossDict)
+                    self.state.data = dcn(data)
+                    self.state.output = dcn(output)
 
-                        diversity = np.sum(self.state.data['label'] == 2)
-                        if diversity > self.state.diversity or self.state.diversity_data is None:
-                            self.state.diversity = diversity
-                            self.state.diversity_data = self.state.data
-                            self.state.diversity_out = self.state.output
+                    diversity = np.sum(self.state.data['label'] == 2)
+                    if diversity > self.state.diversity or self.state.diversity_data is None:
+                        self.state.diversity = diversity
+                        self.state.diversity_data = self.state.data
+                        self.state.diversity_out = self.state.output
 
-                        self._fire('LOSS_UPDATED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.super_batch}: ')
+                    self._fire('LOSS_UPDATED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.super_batch}: ')
 
-                    if self.state.super_batch + 1 >= super_batch:
-                        self._fire('OPTIMIZATION', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.super_batch}: ')
-                        self.optimizer.step()
-                        self.state.optimizer_steps += 1
-                        self._fire('OPTIMIZATION_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.super_batch}: ')
-                        self.state.super_batch = 0
-                        if 'metrics' in self.scheduler.step.__code__.co_varnames:
-                            self.scheduler.step(metrics=loss)
-                        else:
-                            self.scheduler.step()
-                        self._fire('SCHEDULER_FINISHED', f'Optimization step #{self.state.optimizer_steps}, learning rate(s): ')
-                        self._fire('CHECKPOINT')
-                        self.optimizer.zero_grad()
-                        self._fire('ITERATION_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
-                        self.state.iteration += 1
+                    if self.state.loss_step >= super_batch:
+                        self._fire('OPTIMIZATION')
 
-                    self.state.super_batch += 1
+            self.model.eval()
 
-                if self.state.super_batch > 1:
-                    self._fire('OPTIMIZATION', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.super_batch}: ')
+            #~ self._fire('PRE_VALIDATION', f'Epoch #{self.state.epoch}:')
+            #~ self._fire('VALIDATION_STARTED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
+            #~ for dataloader_name, dataloader in self.dataloaders['validation'].items():
+                #~ self.state.phase = 'validation'
+                #~ self.state.sub_phase = dataloader_name
+                #~ self.state.diversity = 0
+                #~ self.state.diversity_data = None
+                #~ self.state.diversity_out = None
 
-                    self.optimizer.step()
-                    self.state.optimizer_steps += 1
-                    self._fire('OPTIMIZATION_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.batch}: ')
-                    self.state.super_batch = 0
-                    self.scheduler.step()
-                    self._fire('SCHEDULER_FINISHED', f'Optimization step #{self.state.optimizer_steps}, learning rate(s): ')
-                    self.optimizer.zero_grad()
-                    self._fire('ITERATION_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
-                    self.state.iteration += 1
+                #~ for dataset in dataloader:    # ITERATION
 
-            # ~ self.model.eval()
-            # ~ self._fire('PRE_VALIDATION', f'Epoch #{self.state.epoch}:')
+                    #~ if not isinstance(dataset, torch.utils.data.Dataset):
+                        #~ dataset = (dataset,)
 
-            # ~ for dataloader in self.dataloaders['validation']:
-                # ~ for b, dataset in enumerate(dataloader): # ITERATION
-                # ~ self.state.phase='validation'
-                # ~ self.state.sub_phase = dataloader_name
-                    # ~ self._fire('VALIDATION_ITERATION_STARTED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
+                    #~ N = len(dataset)
+                    #~ for k, data in enumerate(dataset):
+                        #~ self._fire('VALIDATION_BATCH_LOADED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, mini-batch {k} of {N}: ')
 
-                    # ~ if not isinstance(dataset, torch.utils.data.Dataset):
-                    # ~ dataset = (dataset,)
-                    # ~ for data in dataset:
-                    # ~ pass
+                        #~ for k in data:
+                            #~ if hasattr(data[k],'to'):
+                                #~ data[k] = data[k].to(self.device)
+                        #~ output = self.model(data['input'])
 
-                    # ~ loss = loss + loss_fn(output)
-                    # model, loss
-                    # ~ self._fire('LOSS_UPDATED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.super_batch}: ')
+                        #~ total, lossDict = self.loss_function(output, data)
+                        #~ self._fire('VALIDATION_BATCH_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, mini-batch {k} of {N}: ')
 
-            # ~ self._fire('VALIDATION_FINISHED', f'Epoch #{self.state.epoch}: ')
-            # ~ self._fire('EPOCH_FINISHED', f'Epoch #{self.state.epoch}: ')
+                        #~ self.state.loss = dcn(lossDict)
+                        #~ self.state.data = dcn(data)
+                        #~ self.state.output = dcn(output)
+
+                        #~ diversity = np.sum(self.state.data['label'] == 2)
+                        #~ if diversity > self.state.diversity or self.state.diversity_data is None:
+                            #~ self.state.diversity = diversity
+                            #~ self.state.diversity_data = self.state.data
+                            #~ self.state.diversity_out = self.state.output
+
+            #~ self._fire('VALIDATION_FINISHED', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
+            #~ self._fire('EPOCH_FINISHED', f'Epoch #{self.state.epoch}: ')
+        #~ self._fire('EXECUTION_FINISHED')

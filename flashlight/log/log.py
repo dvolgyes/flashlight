@@ -6,7 +6,7 @@ from pathlib import Path
 
 def log(cfg, logdir):
     logger.remove()
-    for log in cfg.loggers:
+    for _, log in cfg.loggers.items():
         if log.target == 'display':
             logger.add(sys.stderr, level=log.level)
         elif log.target == 'file':

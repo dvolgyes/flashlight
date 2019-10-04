@@ -38,6 +38,56 @@ def parametrized_loss(params):
 def l2(prediction, target):
     return torch.norm(target - prediction, dim=-1)
 
+# https://github.com/meng-tang/rloss/blob/master/pytorch/pytorch-deeplab_v3_plus/utils/loss.py
+
+def partial_loss(input, target, mask, loss_fn, pixel_weights=None,**kwargs):
+    n,c,*dims = input.size()
+    input = input.view(n,c,-1)[mask.view(n,1,-1)]
+    target = target.view(n,-1)[mask.view(n,-1)]
+    if pixel_weights is None:
+        return loss_fn(input, target, *args, **kwargs)
+    loss = loss_fn(input, target, *args, reduction='none', **kwargs)*pixel_weights[mask.view(n,-1)]
+
+    if reduction == 'none':
+        return loss
+    elif reduction == 'mean':
+        return torch.mean(loss)
+    else:
+        return torch.sum(loss)
+
+def focal_loss(input, target, class_weights = 'auto', gamma=0, ignore_index=-100, reduction = 'mean'):
+    n, c, *dims = input.size()
+    if isinstance(class_weights,str) and class_weights == 'auto':
+        class_weights = torch.zeros(c).double()
+        for i in range(c):
+            if i != ignore_index:
+                class_weights[i] = torch.sum(target==i)
+
+        class_weights = (torch.sign(class_weights)*n / (class_weights+1e-3)).float().to(input.device)
+        logger.error(class_weights)
+
+    logpt = - torch.nn.functional.cross_entropy(input, target, class_weights, ignore_index)
+    pt = torch.exp(logpt)
+    loss = -((1 - pt) ** gamma) * logpt
+
+    return loss
+
+def partial_focal_loss(input, target, mask, *args,**kwargs):
+    return partial_loss(input, target, mask, focal_loss, *args,**kwargs)
+
+def partial_cross_entropy(input, target, mask, *args,**kwargs):
+    return partial_loss(input, target, mask, torch.nn.functional.cross_entropy, *args,**kwargs)
+
+
+
+#~ if __name__ == "__main__":
+    #~ loss = SegmentationLosses(cuda=True)
+    #~ a = torch.rand(1, 3, 7, 7).cuda()
+    #~ b = torch.rand(1, 7, 7).cuda()
+    #~ print(loss.CrossEntropyLoss(a, b).item())
+    #~ print(loss.FocalLoss(a, b, gamma=0, alpha=None).item())
+    #~ print(loss.FocalLoss(a, b, gamma=2, alpha=0.5).item())
+
 
 class LossEvaluator:
 
@@ -56,7 +106,6 @@ class LossEvaluator:
     def __call__(self, prediction, data):
         lossDict = SBox()
         for name, loss in self.cfg.items():
-
             namespace = SBox({'prediction': prediction, **data}, default_box=True)
             args = [namespace[x] for x in loss.signature]
             fn = self.loss_fn[name]

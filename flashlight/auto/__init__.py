@@ -78,7 +78,7 @@ def auto_init(section=None):
 
     logger.success('\n' + indent(pyfiglet.figlet_format('Flashlight', 'cybermedium'), '    '))
 
-    # ~ generic_report()
+    generic_report()
 
     logger.debug('Configuration:\n' + cfg.yaml)
 
@@ -98,7 +98,7 @@ def auto_init(section=None):
     summary_writers = SBox(default_box=True)
     for phase in cfg.data:
         for name in cfg.data[phase]:
-            summary_writers[phase][name] = SummaryWriter(logdir=logdir / f'{phase}-{name}', filename_suffix=f'_{phase}-{name}')
+            summary_writers[phase][name] = SummaryWriter(logdir=logdir / f'{phase}-{name}', filename_suffix=f'_{phase}-{name}', flush_secs=5)
     engine.state.summary_writers = summary_writers
     engine.state.logdir = logdir
     engine.enable_automagic()
@@ -115,3 +115,5 @@ def auto_cfg():
     cfg = ensure_reproducible_results(cfg)
 
     return cfg
+
+__all__ = ['auto_cfg', 'auto_init', 'auto_log', 'generic_report']

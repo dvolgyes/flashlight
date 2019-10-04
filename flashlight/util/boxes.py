@@ -7,7 +7,7 @@ import yaml
 import torch               # noqa: F401
 import numpy as np         # noqa: F401
 import psutil
-
+from .extra_contracts import  __placeholder__
 
 @contract(fname='existing_file')
 def box_from_file(fname):
