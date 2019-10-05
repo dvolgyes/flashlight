@@ -7,6 +7,7 @@ from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters.terminal import TerminalFormatter
 import pkg_resources
+import getversion
 from termcolor import colored
 
 
@@ -41,8 +42,20 @@ def env_variable(name, global_env):
 def detect_libs(lib, name=None):
     enabled, version = False, 'N/A'
     enabled = lib in sys.modules
-    version = pkg_resources.get_distribution(lib).version
-    name = pkg_resources.get_distribution(lib).project_name
+
+    if enabled:
+        mod = sys.modules[lib]
+    else:
+        mod = importlib.import_module(lib)
+
+    version = getversion.get_module_version(mod)[0]
+
+    if name is None:
+        try:
+            name = pkg_resources.get_distribution(lib).project_name
+        except:
+            name = lib
+
     return {
         'version': version,
         'enabled': enabled,

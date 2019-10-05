@@ -21,7 +21,7 @@ import sys
 from box import SBox
 from datetime import datetime
 from tensorboardX import SummaryWriter
-
+import pyaml
 
 def generic_report():
     results = []
@@ -74,13 +74,13 @@ def auto_init(section=None):
     logdir = auto_log(cfg)
 
     with open(logdir / 'runtime_config.yaml', 'wt') as f:
-        f.write(cfg.yaml)
+        f.write(pyaml.dump(cfg.dict))
 
     logger.success('\n' + indent(pyfiglet.figlet_format('Flashlight', 'cybermedium'), '    '))
 
     generic_report()
 
-    logger.debug('Configuration:\n' + cfg.yaml)
+    logger.debug('Configuration:\n' + pyaml.dump(cfg.dict))
 
     model = get_model(cfg.model)
     optimizer = get_optimizer(cfg.model.optimizer)(

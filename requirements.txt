@@ -10,3 +10,4 @@ pywarm
 stdlib_list
 termcolor
 termtables
+getversion
