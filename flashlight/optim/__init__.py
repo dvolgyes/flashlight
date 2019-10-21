@@ -11,13 +11,13 @@ from importlib import import_module
 def get_optimizer(cfg):
     name = cfg.name
     optimizer_classes = {
-        'RAdam': RAdam,
-        'Ranger': Ranger,
+        'radam': RAdam,
+        'ranger': Ranger,
     }
-    module = cfg.get('module', 'torch.optim')
-    if name in optimizer_classes:
-        opt = optimizer_classes[name]
+    if name.lower() in optimizer_classes:
+        opt = optimizer_classes[name.lower()]
     else:
+        module = cfg.get('module', 'torch.optim')
         mod = import_module(module)
         optimizer_class = getattr(mod, name)
         opt = optimizer_class
@@ -25,11 +25,12 @@ def get_optimizer(cfg):
 
 
 def get_scheduler(cfg):
-    name = cfg.name
-    module = cfg.get('module', 'torch.optim.lr_scheduler')
-    mod = import_module(module)
-    scheduler_class = getattr(mod, name)
-    return scheduler_class
+    if 'name' in cfg:
+        name = cfg.name
+        module = cfg.get('module', 'torch.optim.lr_scheduler')
+        mod = import_module(module)
+        scheduler_class = getattr(mod, name)
+        return scheduler_class
 
 
 __all__ = ['get_optimizer', 'get_scheduler', 'RAdam', 'Ranger']

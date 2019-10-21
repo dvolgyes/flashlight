@@ -7,7 +7,8 @@ import yaml
 import torch               # noqa: F401
 import numpy as np         # noqa: F401
 import psutil
-from .extra_contracts import  __placeholder__
+from .extra_contracts import __placeholder__
+
 
 @contract(fname='existing_file')
 def box_from_file(fname):
@@ -90,7 +91,7 @@ def resolve_templates(cfg, namespace=None):
 
     if namespace is None:
         namespace = {}
-    namespace = SBox(namespace, default_box=False).copy()
+    namespace = SBox(namespace, default_box=True).copy()
 
     namespace.LOGICAL_CORES = psutil.cpu_count()
     namespace.PHYSICAL_CORES = psutil.cpu_count(logical=False)

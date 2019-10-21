@@ -4,7 +4,28 @@ from pathlib import Path
 import nibabel
 import numpy as np
 from loguru import logger
-from box import Box
+from box import SBox
+import matplotlib.pyplot as plt
+
+def str_to_dtype(s):
+    if s in ['float16', 'half']:
+        return torch.float16
+    elif s in ['float32', 'single', 'float']:
+        return torch.float32
+    elif s in ['float64', 'double']:
+        return torch.float64
+    elif s in ['int8']:
+        torch.int8
+    elif s in ['uint8']:
+        torch.uint8
+    elif s in ['int16', 'short']:
+        torch.int16
+    elif s in ['int32', 'int']:
+        torch.int32
+    elif s in ['int64', 'long']:
+        torch.int64
+    else:
+        raise ValueError(f'invalid dtype: {s}')
 
 
 class MedVolume(torch.utils.data.Dataset):
@@ -26,45 +47,56 @@ class MedVolume(torch.utils.data.Dataset):
         self.weak_supervision = False
         self.superbatch = 1
 
+        nib = nibabel.load(str(self.items['label']))
+        self.size = nib.shape[-1]
+        logger.trace(f'Nibabel label: {self.items["label"]}, shape: {nib.shape}')
+
     def initialize(self):
         for key in self.items:
-            nib = nibabel.load(str(self.items[key]))
-            enc = self.config.encodings[key]
+            self.config.encodings[key].public = self.config.encodings[key].get('public', 'float32')
+            self.config.encodings[key].internal = self.config.encodings[key].get('internal', 'float16')
 
-            dtype = None
-            if enc == 'one_hot':
-                dtype = np.dtype('uint8')
-            else:
-                dtype = np.dtype(enc)
+            nib = nibabel.load(str(self.items[key]))
+            enc = self.config.encodings[key].public
+            dtype = np.dtype(enc)
 
             if dtype.kind == 'f':
                 vol = nib.get_fdata(dtype=dtype)
-                indices = np.pad(range(vol.shape[-1]), self.context, mode='reflect')
-                self.volumes[key] = torch.from_numpy(np.take(vol, indices, axis=-1))
+                A = vol[..., 1:self.context + 1][..., ::-1]
+                B = vol[..., -self.context - 1:-1][..., ::-1]
+                self.volumes[key] = torch.from_numpy(np.clip((np.dstack((A, vol, B)) - 100.) / 128.,-0.7,0.7))
 
+                #~ if self.config.internal_representation in ['half', 'float16']:
+                    #~ self.volumes[key] = self.volumes[key].half()
+                    #~ logger.info('Float32 to float16 conversion.')
             else:
                 vol = nib.get_data().astype(dtype)
                 self.weak_supervision = np.any(vol == self.undefined)
                 self.size = vol.shape[-1]
-                indices = np.pad(range(vol.shape[-1]), self.context_out, mode='reflect')
-                self.volumes[key] = torch.from_numpy(np.take(vol, indices, axis=-1))
-
+                A = vol[..., 1:self.context + 1][..., ::-1]
+                B = vol[..., -self.context - 1:-1][..., ::-1]
+                self.volumes[key] = torch.from_numpy(np.dstack((A, vol, B)))
 
             axes = np.roll(range(vol.ndim), vol.ndim - 2)
-            self.volumes[key] = self.volumes[key].permute(tuple(axes))
+            internal_dtype = str_to_dtype(self.config.encodings[key].get('internal'))
+            self.volumes[key] = self.volumes[key].permute(tuple(axes)).to(internal_dtype)
 
         if self.weak_supervision:
             self.volumes['mask'] = self.volumes['label'] == self.undefined
         else:
             weights = []
             for i in range(self.config.n_classes.label):
-                weights.append( float(torch.sum(self.volumes['label']==i)) )
-            weights = np.asarray(weights)
-            weights = 1.0 / weights
+                weights.append(float(torch.sum(self.volumes['label'] == i)))
+            weights = np.asarray(weights, dtype=np.float32)
+            w_mask = np.sign(weights) # if weight was 0, keep it zero
+            weights = w_mask * (weights.size / (np.asarray(weights) + 1e-5))
             weights = weights / weights.sum()
+
             self.volumes['mask'] = torch.Tensor().new_ones(self.volumes['label'].shape, dtype=bool)
             self.volumes['class_weights'] = torch.from_numpy(weights.astype(np.float32))
-            logger.debug(f'Weights for volume "{self.items[key]}": {np.round(weights,4)}')
+            logger.trace(f'Weights for volume "{self.items[key]}": {weights}')
+
+
 
     def __getitem__(self, idx):
         if len(self.volumes) == 0:
@@ -72,6 +104,8 @@ class MedVolume(torch.utils.data.Dataset):
 
         if idx < 0 or idx >= len(self):
             raise IndexError
+
+        idx = 468
 
         result = {'weight': self.weight,
                   'weak_supervision': self.weak_supervision}
@@ -84,35 +118,15 @@ class MedVolume(torch.utils.data.Dataset):
             else:
                 result[key] = self.volumes[key]
                 # ~ raise ValueError('unexpected label')
-        return Box(result)
+            if hasattr(result[key], 'dtype') and 'internal' in self.config.encodings[key]:
+                dtype = str_to_dtype(self.config.encodings[key].public)
+                result[key] = result[key].to(dtype)
+
+        return SBox(result, default_box=True)
 
     def __len__(self):
-        if len(self.volumes) == 0:
-            self.initialize()
-        return self.size
+        return 1
 
-
-#~ class PatientDB(torch.utils.data.Dataset):
-
-    #~ def __init__(self, config):
-        #~ config.generic.directory = Path(config.generic.directory)
-        #~ self.config = config
-        #~ self.volumes = []
-        #~ self.superbatch = 1
-        #~ for item in self.config.data:
-            #~ for k in item:
-                #~ if isinstance(item[k], str):
-                    #~ item[k] = config.generic.directory / item[k]
-            #~ self.volumes.append(MedVolume(item, config.generic))
-
-    #~ def __len__(self):
-        #~ return len(self.volumes)
-
-    #~ def __getitem__(self, idx):
-        #~ if idx < 0 or idx >= len(self):
-            #~ raise IndexError
-
-        #~ return self.volumes[idx]
 
 class PatientDB(torch.utils.data.Dataset):
 
@@ -129,7 +143,7 @@ class PatientDB(torch.utils.data.Dataset):
         self.mapping = {}
         idx = 0
         for v_idx, v in enumerate(self.volumes):
-            for i in v:
+            for i in range(len(v)):
                 self.mapping[idx] = (v_idx, i)
                 idx += 1
         self.size = idx
@@ -142,4 +156,6 @@ class PatientDB(torch.utils.data.Dataset):
             raise IndexError
 
         v_idx, s_idx = self.mapping[idx]
-        return self.volume[v_idx][s_idx]
+        result = self.volumes[v_idx][s_idx]
+
+        return result

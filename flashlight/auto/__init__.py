@@ -23,7 +23,8 @@ from datetime import datetime
 from tensorboardX import SummaryWriter
 import pyaml
 
-def generic_report():
+
+def generic_report(log_level):
     results = []
     results.append(('Working directory', os.getcwd()))
     results.append(('free space', f'{free_space():.02f}  GB'))
@@ -33,7 +34,7 @@ def generic_report():
     results.append(('Conda environment', CONDA))
 
     s = tt.to_string(results)
-    logger.info('\n' + indent(f'Base system information:\n{s}', '     '))
+    logger.log(log_level,'\n' + indent(f'Base system information:\n{s}', '     '))
 
     detected_libs = []
     for lib in {lib.split('.')[0] for lib in sys.modules} - {'sys'} - {'flashlight'}:
@@ -52,7 +53,7 @@ def generic_report():
     if len(detected_libs):
         detected_libs.sort(key=lambda x: x[0].lower())
         s = tt.to_string(tuple(detected_libs), header=['package name', 'version'])
-        logger.info('\n' + indent(f'Imported non-standard libraries:\n{s}', '    '))
+        logger.log(log_level,'\n' + indent(f'Imported non-standard libraries:\n{s}', '    '))
 
 
 def auto_log(cfg):
@@ -70,23 +71,25 @@ def auto_log(cfg):
 def auto_init(section=None):
     global engine
     cfg = auto_cfg()
-
     logdir = auto_log(cfg)
 
     with open(logdir / 'runtime_config.yaml', 'wt') as f:
-        f.write(pyaml.dump(cfg.dict))
+        f.write(pyaml.dump(cfg.dict, string_val_style='"', sort_dicts=False))
 
-    logger.success('\n' + indent(pyfiglet.figlet_format('Flashlight', 'cybermedium'), '    '))
+    logger.log(cfg.log_levels.get('init','SUCCESS'),'\n' + indent(pyfiglet.figlet_format('Flashlight', 'cybermedium'), '    ') +f'    version: {flashlight.__version__}')
 
-    generic_report()
+    generic_report(cfg.log_levels.get('generic_report','DEBUG'))
 
-    logger.debug('Configuration:\n' + pyaml.dump(cfg.dict))
+    logger.log(cfg.log_levels.get('configuration','DEBUG'), 'Configuration:\n' + pyaml.dump(cfg.dict, string_val_style='"', sort_dicts=False))
 
     model = get_model(cfg.model)
     optimizer = get_optimizer(cfg.model.optimizer)(
         model.parameters(), **cfg.model.optimizer.kwargs)
+
     scheduler = get_scheduler(cfg.model.scheduler)
-    scheduler = scheduler(optimizer, **cfg.model.scheduler.kwargs)
+    if scheduler is not None:
+        scheduler = scheduler(optimizer, **cfg.model.scheduler.kwargs)
+
     loss = LossEvaluator(cfg.loss)
     data_loaders = get_dataloaders(cfg.data)
 
@@ -110,10 +113,13 @@ def auto_cfg():
         filenames = sys.argv[1:]
     else:
         filenames = ('config.yaml', 'local_config.yaml')
-    cfg = cfg_reader(filenames)
+    cfg = SBox(cfg_reader(filenames).dict, default_box=True)
     cfg = resolve_environment(cfg)
-    cfg = ensure_reproducible_results(cfg)
+    cfg = SBox(ensure_reproducible_results(cfg), default_box=True)
+
+    cfg.pop('templates')
 
     return cfg
+
 
 __all__ = ['auto_cfg', 'auto_init', 'auto_log', 'generic_report']

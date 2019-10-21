@@ -2,7 +2,7 @@
 
 # Flashlight
 
-__version__ = '0.1'
+__version__ = '0.2'
 __description__ = 'Flashlight: rapid prototyping library for Pytorch'
 __summary__ = 'Flashlight: rapid prototyping library for Pytorch'
 __license__ = 'BSD'

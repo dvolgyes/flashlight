@@ -4,6 +4,7 @@ from pathlib import Path
 
 __placeholder__ = 'placeholder'
 
+
 @new_contract
 def path(p):
     """New contract type: path which is str or Path."""

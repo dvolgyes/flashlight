@@ -72,6 +72,21 @@ def dict_op(d1, d2, op=operator.add):
     return result
 
 
+def dcns(*args):
+    results = []
+    for x in args:
+        if isinstance(x, (dict, SBox, Box)):
+            for key in x.keys():
+                x[key] = dcns(x[key])
+        if hasattr(x,'detach') and callable(getattr(x,'detach')):
+            x = x.detach().cpu().numpy()
+        if isinstance(x,np.ndarray) and x.size==1:
+            x = np.sum(x)
+        results.append(x)
+    if len(results) == 1:
+        return results[0]
+    return tuple(results)
+
 def dcn(*args):
     results = []
     for x in args:
@@ -120,7 +135,7 @@ def import_function(name):
 
 
 def avg_dict(a, b):
-    result = SBox()
+    result = SBox(default_box=True)
     for key in set(a.keys()) | set(b.keys()):
         result[key] = (a.get(key, 0) + b.get(key, 0)) / 2.0
     return result
@@ -163,7 +178,7 @@ class SWDispatcher:
 
 
 def get_summary_writers(cfg):
-    writers = SBox()
+    writers = SBox(default_box=True)
     date = datetime.now().strftime('%Y_%m%d_%H:%M:%S')
     basedir = cfg.runtime.tensorboard_dirs.separate
     prefix = cfg.runtime.get('log_dir_prefix', '')
