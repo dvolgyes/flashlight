@@ -21,7 +21,7 @@ import sys
 from box import SBox
 from datetime import datetime
 from tensorboardX import SummaryWriter
-import pyaml
+import yaml
 
 
 def generic_report(log_level):
@@ -74,13 +74,13 @@ def auto_init(section=None):
     logdir = auto_log(cfg)
 
     with open(logdir / 'runtime_config.yaml', 'wt') as f:
-        f.write(pyaml.dump(cfg.dict, string_val_style='"', sort_dicts=False))
+        f.write(yaml.dump(cfg.dict, string_val_style='"', sort_dicts=False))
 
     logger.log(cfg.log_levels.get('init','SUCCESS'),'\n' + indent(pyfiglet.figlet_format('Flashlight', 'cybermedium'), '    ') +f'    version: {flashlight.__version__}')
 
     generic_report(cfg.log_levels.get('generic_report','DEBUG'))
 
-    logger.log(cfg.log_levels.get('configuration','DEBUG'), 'Configuration:\n' + pyaml.dump(cfg.dict, string_val_style='"', sort_dicts=False))
+    logger.log(cfg.log_levels.get('configuration','DEBUG'), 'Configuration:\n' + yaml.dump(cfg.dict, string_val_style='"', sort_dicts=False))
 
     model = get_model(cfg.model)
     optimizer = get_optimizer(cfg.model.optimizer)(

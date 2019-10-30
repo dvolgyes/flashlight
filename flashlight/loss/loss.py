@@ -10,7 +10,6 @@ from box import SBox
 import numpy as np
 from loguru import logger
 from functools import partial
-import kornia
 
 def import_function(name):
     relatives = 0
@@ -178,8 +177,9 @@ class FocalDiceLoss(torch.nn.Module):
         input_soft = torch.pow(input_soft,1. /self.alpha)
 
         # create the labels one hot tensor
-        target_one_hot = kornia.utils.one_hot(target, num_classes=input.shape[1],
-                                 device=input.device, dtype=input.dtype)
+        target_one_hot = F.one_hot(target, num_classes=input.shape[1])
+        if target_one_hot.dtype != input.dtype:
+            target_one_hot = torch.as_tensor(target_one_hot, dtype=input.dtype)
 
         # compute the actual dice score
         dims = (1, 2, 3)
