@@ -61,7 +61,6 @@ def auto_log(cfg):
     prefix = cfg.generic.get('log_dir_prefix', '')
     basedir = cfg.generic.get('log_dir', '')
     postfix = cfg.git_hash
-
     logdir = Path(f'{basedir}/{prefix}{date}_{postfix}')
     logdir.mkdir(parents=True, exist_ok=True)
     log(cfg, logdir)
@@ -74,17 +73,16 @@ def auto_init(section=None):
     logdir = auto_log(cfg)
 
     with open(logdir / 'runtime_config.yaml', 'wt') as f:
-        f.write(yaml.dump(cfg.dict, string_val_style='"', sort_dicts=False))
+        f.write(yaml.dump(cfg.dict))
 
     logger.log(cfg.log_levels.get('init','SUCCESS'),'\n' + indent(pyfiglet.figlet_format('Flashlight', 'cybermedium'), '    ') +f'    version: {flashlight.__version__}')
 
     generic_report(cfg.log_levels.get('generic_report','DEBUG'))
 
-    logger.log(cfg.log_levels.get('configuration','DEBUG'), 'Configuration:\n' + yaml.dump(cfg.dict, string_val_style='"', sort_dicts=False))
+    logger.log(cfg.log_levels.get('configuration','DEBUG'), 'Configuration:\n' + yaml.dump(cfg.dict))
 
     model = get_model(cfg.model)
-    optimizer = get_optimizer(cfg.model.optimizer)(
-        model.parameters(), **cfg.model.optimizer.kwargs)
+    optimizer = get_optimizer(cfg.model.optimizer)(model.parameters(), **cfg.model.optimizer.kwargs)
 
     scheduler = get_scheduler(cfg.model.scheduler)
     if scheduler is not None:

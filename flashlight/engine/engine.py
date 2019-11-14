@@ -34,6 +34,9 @@ class Engine:
             model_param_count = f'{model_param_count/1000000:.2f}M'
         self.log('model','DEBUG',f'Model description:\n{model_summary}')
         self.log('model_params','INFO',f'Trainable model parameters: {model_param_count}')
+        if hasattr(model,'module'):
+            if hasattr(model.module, 'receptive_field'):
+                self.log('model_receptive_field','INFO',f'Receptive field: {model.module.receptive_field}')
 
         self.state.summary_writers = DBox()
 
@@ -110,20 +113,23 @@ class Engine:
 
     def START(self,state):
         self.clear_state()
-        self.state.epoch = 1
+        self.state.epoch = 0
         self.state.iteration = 1
         self.state.loss_step = 0
         self.state.optimizer_steps = 0
         self.state.total_loss = 0
+        self.state.cfg = self.cfg
         self.device = self.cfg.generic.device
         self.model.to(self.device)
+        if not hasattr(self.model, 'recurrent_wrap'):
+            setattr(self.model, 'recurrent_wrap', None)
         self.optimizer.zero_grad()
         self.cfg.engine.super_batch = self.cfg.engine.get('super_batch', '1')
+        self.cfg.model.recurrent_wrap = self.cfg.model.get('recurrent_wrap', '0')
 
     def EPOCH_START(self,state):
-        self.state.epoch += 1
         self.state.super_batch = 0
-        self.log('log_dir','INFO', f'Working dir: {state.logdir}')
+        self.log('log_dir','INFO', f'Working dir: {state.logdir}, current epoch: #{state.epoch}')
 
     def TRAINING_START(self, state):
         self.state.phase = 'train'
@@ -141,14 +147,17 @@ class Engine:
         self.clear_state()
 
     def BATCH_LOAD(self, state):
+        if self.cfg.model.recurrent_wrap:
+            state.state.data['hidden'] = model.get_initial_hidden_state()
+
         for key in self.state.data:  # transfer to device, if applicable
             if hasattr(self.state.data[key], 'to'):
                 self.state.data[key] = self.state.data[key].to(self.device)
 
     def LOSS_UPDATE(self,state):
         # TODO remove reshaping
-        self.state.data['label'] = self.state.data['label'].view(1,512,512)
-        self.state.output = self.state.output.view(1,3,512,512)
+        self.state.data['label'] = self.state.data['label'].view(-1,512,512)
+        self.state.output = self.state.output.view(-1,3,512,512)
 
         total, self.state.loss = self.loss_function(self.state.output, self.state.data)
         self.state.loss_step += 1
@@ -163,7 +172,7 @@ class Engine:
 
     def BACKWARD(self,state):
         self.state.total_loss.backward()
-        self.state.total_loss = self.state.loss['total']
+        self.state.total_loss = 0 #self.state.loss['total']
 
 
     def OPTIMIZATION(self,state):
@@ -183,7 +192,11 @@ class Engine:
                 self.scheduler.step()
 
     def INFERENCE(self,state):
-        self.state.output = self.model(self.state.data['input'])
+        if self.model.recurrent_wrap:
+            mix = self.state.data['input']
+            self.state.output, self.state.hidden = self.model(self.state.data['input'])
+        else:
+            self.state.output = self.model(self.state.data['input'])
         n, c, *dims = self.state.output.shape
 
     def VALIDATION_START(self, state):
@@ -195,12 +208,11 @@ class Engine:
         self.clear_state()
 
     def CHECKPOINT(self,state):
-        pass
-        #~ torch.save(self.model.state_dict(), state.logdir / f'checkpoint_model_{state.iteration}.pth')
-        #~ torch.save(self.optimizer.state_dict(), state.logdir / f'checkpoint_optim_{state.iteration}.state')
+        torch.save(self.model.state_dict(), state.logdir / f'checkpoint_model_{state.iteration}.pth')
+        torch.save(self.optimizer.state_dict(), state.logdir / f'checkpoint_optim_{state.iteration}.state')
 
     def EPOCH_END(self,state):
-        pass
+        self.state.epoch += 1
 
     def EXECUTION_END(self,state):
         pass
@@ -226,7 +238,6 @@ class Engine:
                 for data in dataloader:    # ITERATION
 
                     self.state.data = data
-
                     self._fire('BATCH_LOAD')
                     self._fire('INFERENCE')
                     self._fire('LOSS_UPDATE', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}, batch #{self.state.loss_step+1}: ')

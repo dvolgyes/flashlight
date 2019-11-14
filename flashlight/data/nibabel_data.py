@@ -36,7 +36,6 @@ class MedVolume(torch.utils.data.Dataset):
         self.items = items
         self.config = config
         self.context = config.context
-
         self.window = 1 + 2 * self.context
         self.out_window = self.config.output_layers
         self.context_out = self.out_window - self.out_window // 2
@@ -89,8 +88,8 @@ class MedVolume(torch.utils.data.Dataset):
                 weights.append(float(torch.sum(self.volumes['label'] == i)))
             weights = np.asarray(weights, dtype=np.float32)
             w_mask = np.sign(weights) # if weight was 0, keep it zero
-            weights = w_mask * (weights.size / (np.asarray(weights) + 1e-5))
-            weights = weights / weights.sum()
+            weights = w_mask * (weights.size / (np.asarray(weights)))
+            weights = weights / (weights.sum() +1e-3)
 
             self.volumes['mask'] = torch.Tensor().new_ones(self.volumes['label'].shape, dtype=bool)
             self.volumes['class_weights'] = torch.from_numpy(weights.astype(np.float32))
@@ -105,16 +104,14 @@ class MedVolume(torch.utils.data.Dataset):
         if idx < 0 or idx >= len(self):
             raise IndexError
 
-        idx = 468
-
         result = {'weight': self.weight,
                   'weak_supervision': self.weak_supervision}
 
         for key in self.volumes:
             if key == 'input':
-                result[key] = self.volumes[key][idx:idx + self.window, ...].unsqueeze(0)
+                result[key] = self.volumes[key][idx:idx + self.window, ...]
             elif key in ['label', 'mask']:
-                result[key] = self.volumes[key][idx:idx + self.out_window, ...].unsqueeze(0)
+                result[key] = self.volumes[key][idx:idx + self.out_window, ...]
             else:
                 result[key] = self.volumes[key]
                 # ~ raise ValueError('unexpected label')
@@ -125,7 +122,7 @@ class MedVolume(torch.utils.data.Dataset):
         return SBox(result, default_box=True)
 
     def __len__(self):
-        return 1
+        return self.size
 
 
 class PatientDB(torch.utils.data.Dataset):

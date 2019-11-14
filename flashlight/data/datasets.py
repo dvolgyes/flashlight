@@ -11,6 +11,8 @@ def get_dataloaders(cfg):
         for key, data in cfg[phase].items():
             if data.type == 'PatientDB':
                 dataset = PatientDB(box_from_file(data.source))
+                data.dataset = dataset
+
             if 'sampler' in data:
                 sampler = getattr(torch.utils.data, data.sampler.name)(dataset, **data.sampler.kwargs)
                 data.dataloader.sampler = sampler

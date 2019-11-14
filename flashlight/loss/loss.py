@@ -11,6 +11,7 @@ import numpy as np
 from loguru import logger
 from functools import partial
 
+
 def import_function(name):
     relatives = 0
     base = name.strip('.')
@@ -41,13 +42,13 @@ def l2(prediction, target):
 # https://github.com/meng-tang/rloss/blob/master/pytorch/pytorch-deeplab_v3_plus/utils/loss.py
 
 
-def partial_loss(input, target, mask, loss_fn, pixel_weights=None, **kwargs):
-    n, c, *dims = input.size()
-    input = input.view(n, c, -1)[mask.view(n, 1, -1)]
+def partial_loss(input_, target, mask, loss_fn, *args, pixel_weights=None, reduction='mean', **kwargs):
+    n, c, *dims = input_.size()
+    input_ = input_.view(n, c, -1)[mask.view(n, 1, -1)]
     target = target.view(n, -1)[mask.view(n, -1)]
     if pixel_weights is None:
-        return loss_fn(input, target, *args, reduction='none' **kwargs)
-    loss = loss_fn(input, target, *args, reduction='none', **kwargs) * pixel_weights[mask.view(n, -1)]
+        return loss_fn(input_, target, *args, reduction='none', **kwargs)
+    loss = loss_fn(input_, target, *args, reduction='none', **kwargs) * pixel_weights[mask.view(n, -1)]
 
     if reduction == 'none':
         return loss
@@ -57,68 +58,72 @@ def partial_loss(input, target, mask, loss_fn, pixel_weights=None, **kwargs):
         return torch.sum(loss)
 
 
-def focal_loss(input, target, class_weights='auto', gamma=1, ignore_index=-100, reduction='mean'):
-    n, c, *dims = input.size()
+def focal_loss(input_, target, class_weights='auto', gamma=1, ignore_index=-100, reduction='mean'):
+    n, c, *dims = input_.size()
     if isinstance(class_weights, str) and class_weights == 'auto':
         class_weights = torch.zeros(c).double()
         for i in range(c):
             if i != ignore_index:
                 class_weights[i] = torch.sum(target == i)
 
-        class_weights = (torch.sign(class_weights) * n / (class_weights + 1e-3)).float().to(input.device)
+        class_weights = (torch.sign(class_weights) * n / (class_weights + 1e-3)).float().to(input_.device)
         #~ logger.error(class_weights)
 
-    logpt = - torch.nn.functional.cross_entropy(input, target, class_weights, ignore_index, reduction=reduction)
+    logpt = - torch.nn.functional.cross_entropy(input_, target, class_weights, ignore_index, reduction=reduction)
     pt = torch.exp(logpt)
     loss = -((1 - pt) ** gamma) * logpt
 
     return loss
 
-def laplace_regularization(input, reduction='mean', softmax=True):
+
+def laplace_regularization(input_, softmax=True):
     if softmax:
-        input = F.softmax(input, dim = 1)
-    if len(input.shape) == 4:
-        batch,C,H,W=input.shape
-        weight = torch.tensor([[0,1,0],[1,-4,1],[0,1,0.]], requires_grad=False).float()
-        weight = weight.view(1,1,3,3).repeat(C,1,1,1).to(input.device)
-        return torch.abs(torch.nn.functional.conv2d(input,weight,groups=C).mean())
-    if len(input.shape) == 5:
-        batch,C,D,H,W=input.shape
-        weight = torch.tensor([[0,1,0],[1,-4,1],[0,1,0.]], requires_grad=False).float()
-        weight = weight.view(1,1,1,3,3).repeat(C,1,D,1,1).to(input.device)
-        return torch.abs(torch.nn.functional.conv3d(input,weight,groups=C).mean())
+        input_ = F.softmax(input_, dim=1)
+
+    if len(input_.shape) == 4:
+        batch, C, H, W = input_.shape
+        weight = torch.tensor([[0, 1, 0], [1, -4, 1], [0, 1, 0.]], requires_grad=False).float()
+        weight = weight.view(1, 1, 3, 3).repeat(C, 1, 1, 1).to(input_.device)
+        return torch.abs(torch.nn.functional.conv2d(input_, weight, groups=C).mean())
+
+    if len(input_.shape) == 5:
+        batch, C, D, H, W = input_.shape
+        weight = torch.tensor([[0, 1, 0], [1, -4, 1], [0, 1, 0.]], requires_grad=False).float()
+        weight = weight.view(1, 1, 1, 3, 3).repeat(C, 1, D, 1, 1).to(input_.device)
+        return torch.abs(torch.nn.functional.conv3d(input_, weight, groups=C).mean())
 
 
-def TV_regularization(input, reduction='mean', softmax=True):
+def TV_regularization(input_, softmax=True):
     if softmax:
-        input = F.softmax(input, dim = 1)
-    if len(input.shape) == 4:
-        batch,C,H,W=input.shape
-        weight = torch.tensor([[-0.5,0,0.5]], requires_grad=False).float()
-        weightT = weight.transpose(0,1)
+        input_ = F.softmax(input_, dim=1)
+    if len(input_.shape) == 4:
+        batch, C, H, W = input_.shape
+        weight = torch.tensor([[-0.5, 0, 0.5]], requires_grad=False).float()
+        weightT = weight.transpose(0, 1)
 
-        weight = weight.view(1,1,1,3).repeat(C,1,1,1).to(input.device)
-        weightT = weightT.view(1,1,3,1).repeat(C,1,1,1).to(input.device)
+        weight = weight.view(1, 1, 1, 3).repeat(C, 1, 1, 1).to(input_.device)
+        weightT = weightT.view(1, 1, 3, 1).repeat(C, 1, 1, 1).to(input_.device)
 
-        TV1 = torch.abs(torch.nn.functional.conv2d(input,weight,groups=C).mean())
-        TV2 = torch.abs(torch.nn.functional.conv2d(input,weightT,groups=C).mean())
-        return (TV1 +TV2) /2.
+        TV1 = torch.abs(torch.nn.functional.conv2d(input_, weight, groups=C).mean())
+        TV2 = torch.abs(torch.nn.functional.conv2d(input_, weightT, groups=C).mean())
+        return (TV1 + TV2) / 2.
 
-    if len(input.shape) == 5:
-        batch,C,D,H,W=input.shape
-        weight = torch.tensor([[-0.5,0,0.5]], requires_grad=False).float()
+    if len(input_.shape) == 5:
+        batch, C, D, H, W = input_.shape
+        weight = torch.tensor([[-0.5, 0, 0.5]], requires_grad=False).float()
 
-        weight = torch.tensor([[0,1,0],[1,-4,1],[0,1,0.]], requires_grad=False).float()
-        weightT = weight.transpose(0,1)
+        weight = torch.tensor([[0, 1, 0], [1, -4, 1], [0, 1, 0.]], requires_grad=False).float()
+        weightT = weight.transpose(0, 1)
 
-        weight = weight.view(1,1,1,1,3).repeat(C,1,D,1,1).to(input.device)
-        weightT = weightT.view(1,1,1,3,1).repeat(C,1,1,1).to(input.device)
+        weight = weight.view(1, 1, 1, 1, 3).repeat(C, 1, D, 1, 1).to(input_.device)
+        weightT = weightT.view(1, 1, 1, 3, 1).repeat(C, 1, 1, 1).to(input_.device)
 
-        TV1 = torch.abs(torch.nn.functional.conv2d(input,weight,groups=C).mean())
-        TV2 = torch.abs(torch.nn.functional.conv2d(input,weightT,groups=C).mean())
-        return (TV1 +TV2) /2.
+        TV1 = torch.abs(torch.nn.functional.conv2d(input_, weight, groups=C).mean())
+        TV2 = torch.abs(torch.nn.functional.conv2d(input_, weightT, groups=C).mean())
+        return (TV1 + TV2) / 2.
 
-class FocalDiceLoss(torch.nn.Module):
+
+class DiceLoss(torch.nn.Module):
     r"""Criterion that computes Sørensen-Dice Coefficient loss.
 
     According to [1], we compute the Sørensen-Dice Coefficient as follows:
@@ -140,64 +145,109 @@ class FocalDiceLoss(torch.nn.Module):
     [1] https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient
 
     Shape:
-        - Input: :math:`(N, C, H, W)` where C = number of classes.
+        - input_: :math:`(N, C, H, W)` where C = number of classes.
         - Target: :math:`(N, H, W)` where each value is
           :math:`0 ≤ targets[i] ≤ C−1`.
 
     Examples:
         >>> N = 5  # num_classes
         >>> loss = kornia.losses.DiceLoss()
-        >>> input = torch.randn(1, N, 3, 5, requires_grad=True)
+        >>> input_ = torch.randn(1, N, 3, 5, requires_grad=True)
         >>> target = torch.empty(1, 3, 5, dtype=torch.long).random_(N)
-        >>> output = loss(input, target)
+        >>> output = loss(input_, target)
         >>> output.backward()
     """
 
-    def __init__(self, alpha, gamma):
+    def __init__(self, softmax=True, one_hot=True, reduction=None):
         super().__init__()
-        self.eps: float = 1e-6
-        self.alpha = alpha
-        self.gamma = gamma
-    def forward(self,input, target):
+        self.softmax = softmax
+        self.one_hot = one_hot
+        self.reduction = reduction
 
-        if not torch.is_tensor(input):
-            raise TypeError(f'Input type is not a torch.Tensor. Got {type(input)}')
-        if not len(input.shape) == 4:
-            raise ValueError('Invalid input shape, we expect BxNxHxW. Got: {}'
-                             .format(input.shape))
-        if not input.shape[-2:] == target.shape[-2:]:
-            raise ValueError('input and target shapes must be the same. Got: {}'
-                             .format(input.shape, input.shape))
-        if not input.device == target.device:
-            raise ValueError(
-                'input and target must be in the same device. Got: {}' .format(
-                    input.device, target.device))
+    def forward(self, input_, target):
+
+        if not torch.is_tensor(input_):
+            raise TypeError(f'input_ type is not a torch.Tensor. Got {type(input_)}')
+        if not len(input_.shape) == 4:
+            raise ValueError(f'Invalid input_ shape, we expect BxNxHxW. Got: {input_.shape}')
+        if not input_.shape[-2:] == target.shape[-2:]:
+            raise ValueError(f'input_ and target shapes must be the same. Got: {input_.shape} , {target.shape}')
+        if not input_.device == target.device:
+            raise ValueError(f'input_ and target must be in the same device. Got: {input_.device}, {target.device}')
+
         # compute softmax over the classes axis
-        input_soft = F.softmax(input, dim=1)
-        input_soft = torch.pow(input_soft,1. /self.alpha)
+        if self.softmax:
+            input_ = F.softmax(input_, dim=1)
 
         # create the labels one hot tensor
-        target_one_hot = F.one_hot(target, num_classes=input.shape[1])
-        if target_one_hot.dtype != input.dtype:
-            target_one_hot = torch.as_tensor(target_one_hot, dtype=input.dtype)
+        if self.one_hot:
+            target = F.one_hot(target, num_classes=input_.shape[1])
+
+        # converting to same type, if necessary
+        if target.dtype != input_.dtype:
+            target = torch.as_tensor(target, dtype=input_.dtype)
 
         # compute the actual dice score
-        dims = (1, 2, 3)
-        intersection = torch.sum(input_soft * target_one_hot, dims)
-        cardinality = torch.sum(input_soft + target_one_hot, dims)
-
-        dice_score = 2. * intersection / (cardinality + self.eps)
-        return torch.pow(torch.mean(torch.tensor(1.) - dice_score), 1 /self.gamma)
-
-def focal_dice_loss(input, target, alpha=1.0, gamma=1.0):
-    return FocalDiceLoss(alpha, gamma)(input, target)
-
-def partial_focal_loss(input, target, mask, *args, **kwargs):
-    return partial_loss(input, target, mask, focal_loss, *args, **kwargs)
+        dims = tuple(range(1, len(input_.shape)))
+        intersection = torch.sum(input_ * target, dims)
+        union = torch.sum(input_ + target, dims) # both input_ and target must be >=0 and =<1
+        dice_score = 2. * intersection / (union + self.eps)
+        loss = torch.tensor(1.) - dice_score
+        if self.reduction is not None:
+            if self.reduction == 'mean':
+                return torch.mean(loss)
+            return self.reduction(loss)
+        return loss
 
 
-def partial_cross_entropy(input, target, mask, *args, **kwargs):
-    return partial_loss(input, target, mask, torch.nn.functional.cross_entropy, *args, **kwargs)
+class Focalize(torch.nn.Module):
+    """ A module to decrease the learning rate of already well classified instances.
+    """
+
+    def __init__(self, *args, fn=None):
+        super().__init__()
+        if fn is None:
+            def fn(x, k): return (1. - torch.pow(1 - x, k))
+            if len(args) == 0:
+                args = (3,)
+        self.fn = fn
+        self.args = args
+
+    def forward(self, input_):
+        if not torch.is_tensor(input_):
+            raise TypeError(f'input_ type is not a torch.Tensor. Got {type(input_)}')
+        return self.fn(input_, *self.args)
+
+
+def gamma_loss(x, gamma):
+    return torch.pow(x, gamma)
+
+
+class GammaLoss(torch.nn.Module):
+    """ A module to decrease the learning rate of already well classified instances.
+    """
+
+    def __init__(self, gamma=2):
+        super().__init__()
+        self.gamma = gamma
+
+    def forward(self, input_):
+        return gamma_loss(input_, self.gamma)
+
+
+def focal_dice_loss(input_, target, alpha=1.0, gamma=1.0):
+    x = Focalize(alpha)(input_)
+    score = DiceLoss()(x, target)
+    out = GammaLoss(gamma)(score)
+    return out
+
+
+def partial_focal_loss(input_, target, mask, *args, **kwargs):
+    return partial_loss(input_, target, mask, focal_loss, *args, **kwargs)
+
+
+def partial_cross_entropy(input_, target, mask, *args, **kwargs):
+    return partial_loss(input_, target, mask, torch.nn.functional.cross_entropy, *args, **kwargs)
 
 
 class LossEvaluator:
@@ -318,9 +368,7 @@ def loss_function_location(prediction, heatmap, target, cfg):
             if 'relative_weight' in loss:
                 low, high = loss.relative_weight
                 ratio_old = np_losses[name] / (total + 1e-30)
-                logger.warning(
-                    f'Relative weighting enabled {low}<{ratio_old}<{high} = {low<ratio_old<high}'
-                )
+                logger.warning(f'Relative weighting enabled {low}<{ratio_old}<{high} = {low<ratio_old<high}')
                 if not (low < ratio_old < high):
                     logger.warning(
                         f'Loss ({name}) relative weight is adjusted.')
@@ -335,4 +383,4 @@ def loss_function_location(prediction, heatmap, target, cfg):
     return total.mean(), lossDict
 
 
-# ~ def partial_cross_entropy(prediction, target, mask):
+# # to be implemented: def partial_cross_entropy(prediction, target, mask):
