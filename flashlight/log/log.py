@@ -3,7 +3,7 @@ import sys
 from loguru import logger
 from pathlib import Path
 import dpath
-
+import dpath.util
 
 def log(cfg, logdir):
     logger.remove()
