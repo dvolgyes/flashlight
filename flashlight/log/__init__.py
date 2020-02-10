@@ -2,4 +2,4 @@
 
 from .log import log, clog
 
-__all__ = ['log','clog']
+__all__ = ['log', 'clog']

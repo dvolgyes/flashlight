@@ -78,14 +78,15 @@ def dcns(*args):
         if isinstance(x, (dict, SBox, Box)):
             for key in x.keys():
                 x[key] = dcns(x[key])
-        if hasattr(x,'detach') and callable(getattr(x,'detach')):
+        if hasattr(x, 'detach') and callable(getattr(x, 'detach')):
             x = x.detach().cpu().numpy()
-        if isinstance(x,np.ndarray) and x.size==1:
+        if isinstance(x, np.ndarray) and x.size == 1:
             x = np.sum(x)
         results.append(x)
     if len(results) == 1:
         return results[0]
     return tuple(results)
+
 
 def dcn(*args):
     results = []

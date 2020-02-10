@@ -9,7 +9,7 @@ from pygments.formatters.terminal import TerminalFormatter
 import pkg_resources
 import getversion
 from termcolor import colored
-
+import importlib
 
 def getattrs(obj, names, default=None):
     for name in names:
@@ -53,7 +53,7 @@ def detect_libs(lib, name=None):
     if name is None:
         try:
             name = pkg_resources.get_distribution(lib).project_name
-        except:
+        except BaseException:
             name = lib
 
     return {

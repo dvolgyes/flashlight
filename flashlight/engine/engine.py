@@ -13,6 +13,7 @@ from collections.abc import Iterable
 
 DBox = partial(SBox, default_box=True)
 
+
 class Engine:
     def __init__(self, cfg, model, loss, optimizer, scheduler, dataloaders, **kwargs):
         self.state = DBox()
@@ -32,16 +33,16 @@ class Engine:
             model_param_count = f'{model_param_count/1000:.1f}k'
         else:
             model_param_count = f'{model_param_count/1000000:.2f}M'
-        self.log('model','DEBUG',f'Model description:\n{model_summary}')
-        self.log('model_params','INFO',f'Trainable model parameters: {model_param_count}')
-        if hasattr(model,'module'):
+        self.log('model', 'DEBUG', f'Model description:\n{model_summary}')
+        self.log('model_params', 'INFO', f'Trainable model parameters: {model_param_count}')
+        if hasattr(model, 'module'):
             if hasattr(model.module, 'receptive_field'):
-                self.log('model_receptive_field','INFO',f'Receptive field: {model.module.receptive_field}')
+                self.log('model_receptive_field', 'INFO', f'Receptive field: {model.module.receptive_field}')
 
         self.state.summary_writers = DBox()
 
-    def log(self,key,default,message='INFO'):
-        clog(self.cfg,key,default, message)
+    def log(self, key, default, message='INFO'):
+        clog(self.cfg, key, default, message)
 
     def enable_automagic(self):
         pass
@@ -49,25 +50,23 @@ class Engine:
     def _fire(self, event, log_remark=''):
 
         for handler in self.handlers[f'BEFORE_{event}']:
-            self.log('engine.fire','TRACE',f'{log_remark}BEFORE_{event} {handler}:  {handler.__name__} from {handler.__code__.co_filename}:{handler.__code__.co_firstlineno}')
+            self.log('engine.fire', 'TRACE', f'{log_remark}BEFORE_{event} {handler}:  {handler.__name__} from {handler.__code__.co_filename}:{handler.__code__.co_firstlineno}')
             handler(self.state)
-
 
         if len(self.handlers[event]):
             for handler in self.handlers[event]:
-                self.log('engine.fire','TRACE', f'{log_remark}{event}:  {handler.__name__} from {handler.__code__.co_filename}:{handler.__code__.co_firstlineno}')
+                self.log('engine.fire', 'TRACE', f'{log_remark}{event}:  {handler.__name__} from {handler.__code__.co_filename}:{handler.__code__.co_firstlineno}')
                 handler(self.state)
 
-        elif hasattr(self,event):
-            self.log('engine.fire_default','TRACE', f'{log_remark}{event}: Default event handler.')
-            getattr(self,event)(self.state)
+        elif hasattr(self, event):
+            self.log('engine.fire_default', 'TRACE', f'{log_remark}{event}: Default event handler.')
+            getattr(self, event)(self.state)
         else:
-            self.log('engine.fire_no_default','TRACE', f'{log_remark}{event}: No event handler defined.')
+            self.log('engine.fire_no_default', 'TRACE', f'{log_remark}{event}: No event handler defined.')
 
         for handler in self.handlers[f'AFTER_{event}']:
-            self.log('engine.fire','TRACE', '{log_remark}AFTER_{event}:  {handler.__name__} from {handler.__code__.co_filename}:{handler.__code__.co_firstlineno}')
+            self.log('engine.fire', 'TRACE', '{log_remark}AFTER_{event}:  {handler.__name__} from {handler.__code__.co_filename}:{handler.__code__.co_firstlineno}')
             handler(self.state)
-
 
     def add_event_handler(self, event, func):
         if event not in self.handlers:
@@ -82,7 +81,7 @@ class Engine:
 
     def on(self, event, *args, **kwargs):
         def decorator(f):
-            if isinstance(event, Iterable) and not isinstance(event,str):
+            if isinstance(event, Iterable) and not isinstance(event, str):
                 for e in event:
                     self.add_event_handler(e, f, *args, **kwargs)
             else:
@@ -94,7 +93,7 @@ class Engine:
         for loss_name in state.loss:
             value = dcn(state.loss)[loss_name]
             state.summary_writers[state.phase][state.sub_phase].add_scalar(f'loss/{loss_name}', value, state.iteration)
-            self.log('loss','SUCCESS',f'loss/{loss_name}: {value}')
+            self.log('loss', 'SUCCESS', f'loss/{loss_name}: {value}')
             #~ state.summary_writers[state.phase][state.sub_phase].flush()
 
     def zero_grad(self):
@@ -111,7 +110,7 @@ class Engine:
         self.state.output = None
         self.state.total_loss = 0
 
-    def START(self,state):
+    def START(self, state):
         self.clear_state()
         self.state.epoch = 0
         self.state.iteration = 1
@@ -127,9 +126,9 @@ class Engine:
         self.cfg.engine.super_batch = self.cfg.engine.get('super_batch', '1')
         self.cfg.model.recurrent_wrap = self.cfg.model.get('recurrent_wrap', '0')
 
-    def EPOCH_START(self,state):
+    def EPOCH_START(self, state):
         self.state.super_batch = 0
-        self.log('log_dir','INFO', f'Working dir: {state.logdir}, current epoch: #{state.epoch}')
+        self.log('log_dir', 'INFO', f'Working dir: {state.logdir}, current epoch: #{state.epoch}')
 
     def TRAINING_START(self, state):
         self.state.phase = 'train'
@@ -142,7 +141,6 @@ class Engine:
     def ITERATION_END(self, state):
         self.clear_state()
 
-
     def TRAINING_END(self, state):
         self.clear_state()
 
@@ -154,10 +152,10 @@ class Engine:
             if hasattr(self.state.data[key], 'to'):
                 self.state.data[key] = self.state.data[key].to(self.device)
 
-    def LOSS_UPDATE(self,state):
+    def LOSS_UPDATE(self, state):
         # TODO remove reshaping
-        self.state.data['label'] = self.state.data['label'].view(-1,512,512)
-        self.state.output = self.state.output.view(-1,3,512,512)
+        self.state.data['label'] = self.state.data['label'].view(-1, 512, 512)
+        self.state.output = self.state.output.view(-1, 3, 512, 512)
 
         total, self.state.loss = self.loss_function(self.state.output, self.state.data)
         self.state.loss_step += 1
@@ -170,13 +168,12 @@ class Engine:
         self.state.data = dcn(self.state.data)
         self.state.output = dcn(self.state.output)
 
-    def BACKWARD(self,state):
+    def BACKWARD(self, state):
         self.state.total_loss.backward()
         self.state.total_loss = 0 #self.state.loss['total']
 
-
-    def OPTIMIZATION(self,state):
-        if self.state.loss_step>0:
+    def OPTIMIZATION(self, state):
+        if self.state.loss_step > 0:
             self.optimizer.step()
             self.state.optimizer_steps += 1
             self._fire('SCHEDULER')
@@ -184,14 +181,14 @@ class Engine:
             self._fire('ITERATION_END')
             self.state.iteration += 1
 
-    def SCHEDULER(self,state):
+    def SCHEDULER(self, state):
         if self.scheduler is not None:
             if 'metrics' in self.scheduler.step.__code__.co_varnames:
                 self.scheduler.step(metrics=self.state.mean_loss['total'])
             else:
                 self.scheduler.step()
 
-    def INFERENCE(self,state):
+    def INFERENCE(self, state):
         if self.model.recurrent_wrap:
             mix = self.state.data['input']
             self.state.output, self.state.hidden = self.model(self.state.data['input'])
@@ -204,19 +201,18 @@ class Engine:
         self.model.eval()
         self.clear_state()
 
-    def VALIDATION_END(self,state):
+    def VALIDATION_END(self, state):
         self.clear_state()
 
-    def CHECKPOINT(self,state):
+    def CHECKPOINT(self, state):
         torch.save(self.model.state_dict(), state.logdir / f'checkpoint_model_{state.iteration}.pth')
         torch.save(self.optimizer.state_dict(), state.logdir / f'checkpoint_optim_{state.iteration}.state')
 
-    def EPOCH_END(self,state):
+    def EPOCH_END(self, state):
         self.state.epoch += 1
 
-    def EXECUTION_END(self,state):
+    def EXECUTION_END(self, state):
         pass
-
 
     def run(self, *args, **kwargs):
         self._fire('START')
@@ -252,11 +248,11 @@ class Engine:
                     if self.state.loss_step >= super_batch:
                         self._fire('OPTIMIZATION')
 
-                    if self.cfg.engine.debug_mode == True:
-                        self.log('debug_mode','WARNING','Debug mode is enabled, abort after first training iteration.')
+                    if self.cfg.engine.debug_mode:
+                        self.log('debug_mode', 'WARNING', 'Debug mode is enabled, abort after first training iteration.')
                         break
 
-                if self.state.loss_step>0:
+                if self.state.loss_step > 0:
                     self._fire('OPTIMIZATION')
             self._fire('TRAINING_END')
             continue
@@ -279,14 +275,14 @@ class Engine:
                             #~ self.state.diversity = diversity
                             #~ self.state.diversity_data = self.state.data
                             #~ self.state.diversity_out = self.state.output
-                    if self.cfg.engine.debug_mode == True:
-                        self.log('debug_mode','WARNING','Debug modeis enabled, abort after first training iteration.')
+                    if self.cfg.engine.debug_mode:
+                        self.log('debug_mode', 'WARNING', 'Debug modeis enabled, abort after first training iteration.')
                         break
 
             self._fire('VALIDATION_END', f'Epoch #{self.state.epoch}, iter #{self.state.iteration}: ')
             self._fire('EPOCH_END', f'Epoch #{self.state.epoch}: ')
 
-            if self.cfg.engine.debug_mode == True:
-                self.log('debug_mode','WARNING','Debug modeis enabled, abort after first epoch.')
+            if self.cfg.engine.debug_mode:
+                self.log('debug_mode', 'WARNING', 'Debug modeis enabled, abort after first epoch.')
                 break
         self._fire('EXECUTION_END')

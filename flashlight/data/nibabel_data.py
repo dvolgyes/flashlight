@@ -7,6 +7,7 @@ from loguru import logger
 from box import SBox
 import matplotlib.pyplot as plt
 
+
 def str_to_dtype(s):
     if s in ['float16', 'half']:
         return torch.float16
@@ -63,7 +64,7 @@ class MedVolume(torch.utils.data.Dataset):
                 vol = nib.get_fdata(dtype=dtype)
                 A = vol[..., 1:self.context + 1][..., ::-1]
                 B = vol[..., -self.context - 1:-1][..., ::-1]
-                self.volumes[key] = torch.from_numpy(np.clip((np.dstack((A, vol, B)) - 100.) / 128.,-0.7,0.7))
+                self.volumes[key] = torch.from_numpy(np.clip((np.dstack((A, vol, B)) - 100.) / 128., -0.7, 0.7))
 
                 #~ if self.config.internal_representation in ['half', 'float16']:
                     #~ self.volumes[key] = self.volumes[key].half()
@@ -89,13 +90,11 @@ class MedVolume(torch.utils.data.Dataset):
             weights = np.asarray(weights, dtype=np.float32)
             w_mask = np.sign(weights) # if weight was 0, keep it zero
             weights = w_mask * (weights.size / (np.asarray(weights)))
-            weights = weights / (weights.sum() +1e-3)
+            weights = weights / (weights.sum() + 1e-3)
 
             self.volumes['mask'] = torch.Tensor().new_ones(self.volumes['label'].shape, dtype=bool)
             self.volumes['class_weights'] = torch.from_numpy(weights.astype(np.float32))
             logger.trace(f'Weights for volume "{self.items[key]}": {weights}')
-
-
 
     def __getitem__(self, idx):
         if len(self.volumes) == 0:

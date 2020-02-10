@@ -34,7 +34,7 @@ def generic_report(log_level):
     results.append(('Conda environment', CONDA))
 
     s = tt.to_string(results)
-    logger.log(log_level,'\n' + indent(f'Base system information:\n{s}', '     '))
+    logger.log(log_level, '\n' + indent(f'Base system information:\n{s}', '     '))
 
     detected_libs = []
     for lib in {lib.split('.')[0] for lib in sys.modules} - {'sys'} - {'flashlight'}:
@@ -53,7 +53,7 @@ def generic_report(log_level):
     if len(detected_libs):
         detected_libs.sort(key=lambda x: x[0].lower())
         s = tt.to_string(tuple(detected_libs), header=['package name', 'version'])
-        logger.log(log_level,'\n' + indent(f'Imported non-standard libraries:\n{s}', '    '))
+        logger.log(log_level, '\n' + indent(f'Imported non-standard libraries:\n{s}', '    '))
 
 
 def auto_log(cfg):
@@ -75,11 +75,11 @@ def auto_init(section=None):
     with open(logdir / 'runtime_config.yaml', 'wt') as f:
         f.write(yaml.dump(cfg.dict))
 
-    logger.log(cfg.log_levels.get('init','SUCCESS'),'\n' + indent(pyfiglet.figlet_format('Flashlight', 'cybermedium'), '    ') +f'    version: {flashlight.__version__}')
+    logger.log(cfg.log_levels.get('init', 'SUCCESS'), '\n' + indent(pyfiglet.figlet_format('Flashlight', 'cybermedium'), '    ') + f'    version: {flashlight.__version__}')
 
-    generic_report(cfg.log_levels.get('generic_report','DEBUG'))
+    generic_report(cfg.log_levels.get('generic_report', 'DEBUG'))
 
-    logger.log(cfg.log_levels.get('configuration','DEBUG'), 'Configuration:\n' + yaml.dump(cfg.dict))
+    logger.log(cfg.log_levels.get('configuration', 'DEBUG'), 'Configuration:\n' + yaml.dump(cfg.dict))
 
     model = get_model(cfg.model)
     optimizer = get_optimizer(cfg.model.optimizer)(model.parameters(), **cfg.model.optimizer.kwargs)
