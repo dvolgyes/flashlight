@@ -1,13 +1,12 @@
 channels:
   - pytorch
+  - conda-forge
 dependencies:
   - python
   - matplotlib
   - numpy
   - scipy
   - pytorch
-  - ipython
-  - cpuonly
   - torchvision
   - imageio
   - tensorboardX
@@ -19,8 +18,17 @@ dependencies:
   - scikit-image
   - GitPython
   - pyfiglet
-  - mkl
-  - mkl-service
-  - blas=*=mkl
   - pygments
-#  - cpuonly
+  - psutil
+  - termcolor
+  - pip
+  - pip:
+    - pycontracts
+    - configspace
+    - duecredit
+    - decopatch
+    - getversion
+    - dsntnn
+    - highresnet
+    - pywarm
+    - termtables

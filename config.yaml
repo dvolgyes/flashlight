@@ -1,0 +1,203 @@
+generic:
+    device: 'cuda'
+    enable_python_codes: true
+    log_dir: runs
+
+engine:
+    num_epochs: 20
+
+loggers:
+    screen:
+        level: 'DEBUG'
+        target: display
+    error:
+        level: 'ERROR'
+        target: file
+        filename:  error.log
+    warning:
+        level: 'WARNING'
+        target: file
+        filename:  warning.log
+    standard:
+        level: 'INFO'
+        target: file
+        filename:  runtime.log
+    trace:
+        level: 'TRACE'
+        target: file
+        filename:  trace.log
+    debug:
+        level: 'DEBUG'
+        target: file
+        filename:  debug.log
+loss:
+    cross_entropy:
+        function: torch.nn.functional.cross_entropy
+        signature: ['prediction', 'label', 'class_weights']
+        #~ kwargs:
+           #~ weight: null   # weight between classes
+        weight: 1 # weight between losses
+
+dataloader:
+  kwargs:
+    batch_size: null
+    shuffle: false
+    num_workers: 1
+  sampler:
+    name: RandomSampler
+    kwargs:
+      replacement: false
+
+data:
+    train:
+      supervised:
+        source: 'train.yaml'
+        type: PatientDB
+        dataloader: '%dataloader%'
+        transforms:
+            - noise:
+                scale: 3
+#      weakly_supervised:
+#        source: train.yaml
+#        dataloader: '%dataloader%'
+#        transforms:
+#            - noise:
+#                scale: 3
+
+    validation:
+      standard:
+        type: PatientDB
+        source: validation.yaml
+        dataloader: '%dataloader%'
+      #~ noisy:
+        #~ type: PatientDB
+        #~ source: validation.yaml
+        #~ dataloader: '%dataloader%'
+        #~ transforms:
+            #~ - noise:
+                #~ scale: 3
+    #~ test:
+        #~ source: test.yaml
+        #~ dataloader: %dataloader%
+        #~ transforms:
+            #~ - zoom:
+                #~ range: [0.5, 0.5 ]
+            #~ - crop:
+                #~ window: 512
+            #~ - gamma:
+                #~ range: [0.4,0.5]
+            #~ - rotate:
+                #~ range: [-15,15]
+            #~ - random_crop:
+                #~ window: 384
+                #~ range: [-32,32]
+            #~ - random_baseline_offset:
+                #~ range: [-10,10]
+            #~ - noise:
+                #~ scale: 3
+model:
+    source: 'local'
+    name: HighResNet
+    device: '%generic.device%'
+    kwargs:
+        in_channels: 17
+        out_channels: 3
+        dimensions: 2  # technically, it is a 2D network with 17 channels because it gives 2d prediction
+
+        initial_out_channels_power: 4  # x4
+        layers_per_residual_block: 3 # linear, default 2
+        residual_blocks_per_dilation: 4 # linear
+        dilations: 4   #x4
+        batch_norm: true
+        instance_norm: false
+        residual: true
+        padding_mode: 'constant'
+        add_dropout_layer: false
+
+    #~ optimizer: '%hyperparameters.optimizer%'
+    #~ scheduler: '%hyperparameters.scheduler%'
+    optimizer: '%templates.Ranger%'
+    scheduler: '%templates.ReduceLROnPlateau%'
+
+model2:
+    source: 'local'
+    name: Unet
+    device: '%generic.device%'
+    kwargs:
+        in_channels: 17
+        n_classes: 3
+        depth: 4
+        wf: 4
+        padding: True
+        batch_norm: False
+        up_mode: 'upconv'
+    #~ optimizer: '%hyperparameters.optimizer%'
+    #~ scheduler: '%hyperparameters.scheduler%'
+    optimizer: '%templates.SGD%'
+    scheduler: '%templates.ReduceLROnPlateau%'
+
+
+
+
+# ------------------ Templates------------------
+
+templates:
+    batch_size: 16
+    epochs: 1000
+
+    Ranger:
+        name: 'Ranger'
+        source: 'local'
+        kwargs:
+            lr: 0.001
+
+    SGD:
+        name: 'SGD'
+        module: torch.optim
+        kwargs:
+            lr: 0.001
+            momentum: 0.9
+
+    StepLR:
+        name: 'StepLR'
+        module: torch.optim.lr_scheduler
+        kwargs:
+            step_size: 1
+            gamma: 0.95
+            last_epoch: -1
+
+    MultiStepLR:
+        name: 'MultiStepLR'
+        module: torch.optim.lr_scheduler
+        kwargs:
+            milestones: 1,2,3,4
+            gamma: 0.1
+            last_epoch: -1
+
+    ExponentialLR:
+        name: 'ExponentialLR'
+        module: torch.optim.lr_scheduler
+        kwargs:
+            gamma: 0.955
+            last_epoch: -1
+
+
+    CosineAnnealingLR:
+        name: 'CosineAnnealingLR'
+        module: torch.optim.lr_scheduler
+        kwargs:
+            T_max: 10
+            eta_min: 0
+            last_epoch: -1
+
+    ReduceLROnPlateau:
+        name: 'ReduceLROnPlateau'
+        module: torch.optim.lr_scheduler
+        kwargs:
+            factor: 0.1
+            patience: 3
+            #~ threshold: 0.0001
+            #~ threshold_mode: 'rel'
+            #~ cooldown: 0
+            #~ min_lr: 0
+            #~ eps: 0.00000001

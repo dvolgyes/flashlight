@@ -1,0 +1,17 @@
+generic:
+    directory: /scratch/davidvo/LITS/training
+    data_type: nibabel
+    encodings:
+        input:
+          internal: float16
+          public: float32
+        label:
+          internal: int8
+          public: int
+    n_classes:
+        label: 3
+    context: 5
+    output_layers: 1
+    internal_representation: half
+
+data:

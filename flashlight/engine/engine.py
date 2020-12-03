@@ -255,7 +255,7 @@ class Engine:
                 if self.state.loss_step > 0:
                     self._fire('OPTIMIZATION')
             self._fire('TRAINING_END')
-            continue
+
             self._fire('VALIDATION_START', f'Epoch #{self.state.epoch}, iter #{self.state.iteration-1}: ')
             for dataloader_name, dataloader in self.dataloaders['validation'].items():
 

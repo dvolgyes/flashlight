@@ -7,7 +7,7 @@ repos:
         language: fail
         files: '.*png|.*xlsx'
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.3.0
+    rev: v3.3.0
     hooks:
     -   id: trailing-whitespace
     -   id: check-added-large-files
@@ -60,18 +60,18 @@ repos:
         args: ['--max-line-length=160', '--ignore=E801,E501,E402,E116,E265,E203,W503,N806,E800,N812,N816']
 
 -   repo: https://github.com/pre-commit/pygrep-hooks
-    rev: v1.4.1  # Use the ref you want to point at
+    rev: v1.7.0  # Use the ref you want to point at
     hooks:
     -   id: python-check-blanket-noqa
     -   id: python-no-log-warn
     -   id: rst-backticks
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v1.23.0
+    rev: v2.7.4
     hooks:
     -   id: pyupgrade
         args: ['--py36-plus']
 -   repo: https://github.com/pre-commit/mirrors-autopep8
-    rev: v1.4.4  # Use the sha / tag you want to point at
+    rev: v1.5.4  # Use the sha / tag you want to point at
     hooks:
     -   id: autopep8
         args: ['--ignore=E402,E265,E112,E115,E116,E261,E262', '--select=E226', '-aaa', '--max-line-lengt=160', '--in-place']

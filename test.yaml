@@ -1,0 +1,11 @@
+generic:
+    directory: /scratch/davidvo/LITS/test
+    data_type: nibabel
+    encodings:
+        input: float32
+        label: int
+    n_classes:
+        label: 3
+    context: 8
+
+data:

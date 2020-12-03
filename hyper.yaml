@@ -1,0 +1,4 @@
+dots: true
+hyperparameters.optimizer.kwargs.lr: 0.00013415151466749127
+hyperparameters.optimizer.name: Adam
+hyperparameters.scheduler: '%templates.CosineAnnealingLR%'

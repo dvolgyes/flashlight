@@ -1,0 +1,31 @@
+# parameter_name categorical {value_1, ..., value_N} [default value]
+# parameter_name ordinal {value_1, ..., value_N} [default value]
+# parameter_name integer [min_value, max_value] [default value]
+# parameter_name integer [min_value, max_value] [default value] log
+# parameter_name real [min_value, max_value] [default value]
+# parameter_name real [min_value, max_value] [default value] log
+
+optimizer.name categorical { Adam, SGD, Ranger} [Adam]
+optimizer.kwargs.lr real [0.00001,0.001] [0.0001]log
+optimizer.kwargs.momentum real [0.5,0.99] [0.9]log
+optimizer.kwargs.momentum | optimizer.name == SGD
+
+scheduler categorical { '%templates.CosineAnnealingLR%', '%templates.StepLR%' } ['%templates.CosineAnnealingLR%']
+
+#model.in_channels integer [16,64] [16]
+#model.depth integer [3,5] [4]
+#model.wf integer [5,7] [5]
+#model.padding integer [0,1] [1]
+#model.batch_norm integer [0,1] [1]
+#model.up_mode categorical {upconv,upsample,nearest} [nearest]
+
+
+#b real [2.0, 4.0] [3.0]log
+#d categorical {A, B} [A]
+#ordinal_hp ordinal {10, 20, 30} [10]
+
+# conditions
+# child_name | condition [&&,||] condition ...
+
+# Forbiddens:
+# {parameter_name_1=value_1, ..., parameter_name_N=value_N}
